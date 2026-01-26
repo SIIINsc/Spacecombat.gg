@@ -937,6 +937,8 @@ function renderFlowsBlock(block, index) {
       flowActions.appendChild(removeFlow);
       card.appendChild(flowActions);
     }
+    importInput.value = "";
+  });
 
     body.appendChild(card);
   });
@@ -1259,6 +1261,14 @@ function renderAdminToolsBlock(block, index) {
     handleExportHtml();
   });
 
+  const exportEditorBtn = document.createElement("button");
+  exportEditorBtn.className = "btn btn-outline";
+  exportEditorBtn.type = "button";
+  exportEditorBtn.textContent = "Export editor (single HTML)";
+  exportEditorBtn.addEventListener("click", () => {
+    handleExportEditorHtml();
+  });
+
   const importLabel = document.createElement("label");
   importLabel.className = "btn btn-outline";
   importLabel.textContent = "Import JSON";
@@ -1280,6 +1290,7 @@ function renderAdminToolsBlock(block, index) {
   actionRow.appendChild(resetBtn);
   actionRow.appendChild(exportBtn);
   actionRow.appendChild(exportHtmlBtn);
+  actionRow.appendChild(exportEditorBtn);
   actionRow.appendChild(importLabel);
   actionRow.appendChild(importInput);
 
@@ -1735,8 +1746,9 @@ function handleExportJson() {
   URL.revokeObjectURL(url);
 }
 
-function handleExportHtml() {
-  const html = buildViewerHtml(state);
+async function handleExportHtml() {
+  const styles = await getStylesheetText();
+  const html = buildViewerHtml(state, styles);
   const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -1748,8 +1760,22 @@ function handleExportHtml() {
   URL.revokeObjectURL(url);
 }
 
-function buildViewerHtml(sourceState) {
-  const styles = getStylesheetText();
+async function handleExportEditorHtml() {
+  const styles = await getStylesheetText();
+  const script = await getScriptText();
+  const html = buildEditorHtml(styles, script);
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "scscp-editor.html";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildViewerHtml(sourceState, styles) {
   const headerHtml = `
       <div class="header-main">
         <div class="header-text">
@@ -1863,7 +1889,35 @@ function buildViewerHtml(sourceState) {
 </html>`;
 }
 
-function getStylesheetText() {
+function buildEditorHtml(styles, script) {
+  const bodyHtml = document.body.innerHTML.replace(/<script[^>]*>[\s\S]*?<\/script>/g, "");
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(state.header.title)}</title>
+    <style>${styles}</style>
+  </head>
+  <body>
+${bodyHtml}
+    <script>${script}</script>
+  </body>
+</html>`;
+}
+
+async function getStylesheetText() {
+  const stylesheet = document.querySelector('link[rel="stylesheet"]');
+  if (stylesheet?.href) {
+    try {
+      const response = await fetch(stylesheet.href, { cache: "no-cache" });
+      if (response.ok) {
+        return await response.text();
+      }
+    } catch (error) {
+      console.warn("Unable to fetch stylesheet", error);
+    }
+  }
   let cssText = "";
   Array.from(document.styleSheets).forEach((sheet) => {
     try {
@@ -1877,6 +1931,21 @@ function getStylesheetText() {
     }
   });
   return cssText;
+}
+
+async function getScriptText() {
+  const scriptTag = document.querySelector('script[src$="app.js"]');
+  if (scriptTag?.src) {
+    try {
+      const response = await fetch(scriptTag.src, { cache: "no-cache" });
+      if (response.ok) {
+        return await response.text();
+      }
+    } catch (error) {
+      console.warn("Unable to fetch script", error);
+    }
+  }
+  return "";
 }
 
 function buildViewerBlock(block, sourceState) {
