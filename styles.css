@@ -75,22 +75,20 @@ a {
   align-items: flex-end;
 }
 
+.header-actions .btn-ghost {
+  display: none;
+}
+
+.admin-active .header-actions .btn-ghost {
+  display: inline-flex;
+}
+
 .status-pill {
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   border: 1px solid var(--line);
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-.header-disclaimer {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 206, 107, 0.12);
-  border: 1px solid rgba(255, 206, 107, 0.35);
-  border-radius: 8px;
-  color: var(--warning);
-  font-size: 0.85rem;
 }
 
 .top-nav {
@@ -127,6 +125,56 @@ a {
   background: var(--panel);
 }
 
+.header-text {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.header-intro {
+  color: var(--muted);
+  max-width: 560px;
+}
+
+.inline-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 0;
+  font-family: inherit;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(18, 26, 38, 0.5);
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+}
+
+.inline-input.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.inline-input.title {
+  font-size: 2.1rem;
+  font-weight: 700;
+}
+
+.inline-input.subhead {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.inline-input.intro {
+  color: var(--muted);
+  font-size: 0.95rem;
+  width: min(560px, 100%);
+  min-height: 2.4rem;
+}
+
 main {
   padding: 2rem;
   display: flex;
@@ -147,6 +195,30 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.panel-header .header-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.panel-title-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.panel-title-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(18, 26, 38, 0.5);
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
 }
 
 .panel-body {
@@ -170,6 +242,26 @@ main {
   padding-left: 1.1rem;
   margin: 0.5rem 0 0;
   color: var(--muted);
+}
+
+.admin-active .rule-card ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.admin-active .rule-card li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-active .rule-card input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  width: 100%;
 }
 
 .flow-grid {
@@ -221,6 +313,46 @@ main {
   color: var(--muted);
 }
 
+.flow-editor {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.flow-editor-row {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.flow-editor-item {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(200px, 2fr) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.flow-editor-item select,
+.flow-editor-item input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+}
+
+.flow-editor-item label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.flow-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .admin-tools {
   display: grid;
   gap: 1rem;
@@ -236,14 +368,6 @@ main {
 .admin-note {
   color: var(--muted);
   font-size: 0.85rem;
-}
-
-#adminPanel {
-  display: none;
-}
-
-#adminPanel.active {
-  display: block;
 }
 
 .toggle {
@@ -411,6 +535,20 @@ main {
   flex-wrap: wrap;
 }
 
+.block-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.callout-group-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .empty-state {
   padding: 1rem 1.5rem;
   color: var(--muted);
@@ -422,6 +560,24 @@ main {
 .site-footer {
   padding: 2rem;
   text-align: center;
+  color: var(--muted);
+}
+
+.footer-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.footer-editor input,
+.footer-editor textarea {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+}
+
+.footer-line {
   color: var(--muted);
 }
 
