@@ -1202,6 +1202,27 @@ function renderFlowsBlock(block, index) {
       card.appendChild(renderFlowRow(flow, row, rowIndex));
     });
 
+    const legend = document.createElement("div");
+    legend.className = "flow-legend";
+    const legendLabel = document.createElement("span");
+    legendLabel.innerHTML = "<strong>Legend:</strong>";
+    const arrowA = document.createElement("span");
+    arrowA.className = "flow-arrow";
+    arrowA.textContent = "→";
+    const arrowAText = document.createElement("span");
+    arrowAText.textContent = "Short breath (3–5s, no name)";
+    const arrowB = document.createElement("span");
+    arrowB.className = "flow-arrow arrow-time";
+    arrowB.textContent = "⇢";
+    const arrowBText = document.createElement("span");
+    arrowBText.textContent = "Time passed (name required)";
+    legend.appendChild(legendLabel);
+    legend.appendChild(arrowA);
+    legend.appendChild(arrowAText);
+    legend.appendChild(arrowB);
+    legend.appendChild(arrowBText);
+    card.appendChild(legend);
+
     if (adminMode) {
       const flowActions = document.createElement("div");
       flowActions.className = "admin-row";
@@ -1327,9 +1348,98 @@ function renderVideoBlock(block, index) {
   return section;
 }
 
+function renderYoutubeBlock(block, index) {
+  const section = document.createElement("section");
+  section.className = "panel";
+  section.id = block.id;
+
+  const header = document.createElement("div");
+  header.className = "panel-header";
+  header.appendChild(renderBlockTitle(block, "h2"));
+  header.appendChild(renderBlockActions(block, index));
+  section.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "panel-body";
+
+  if (adminMode) {
+    const urlField = renderField("YouTube URL", block.url || "", (value) => {
+      block.url = value;
+      render();
+    }, {
+      type: "text",
+      editable: adminMode,
+    });
+    const titleField = renderField("Optional title", block.title || "", (value) => {
+      block.title = value;
+    }, {
+      type: "text",
+      editable: adminMode,
+    });
+    body.appendChild(urlField);
+    body.appendChild(titleField);
+  }
+
+  const embedUrl = getYouTubeEmbedUrl(block.url || "");
+  if (embedUrl) {
+    const frame = document.createElement("iframe");
+    frame.className = "youtube-frame";
+    frame.src = embedUrl;
+    frame.allowFullscreen = true;
+    body.appendChild(frame);
+  } else if (!adminMode) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "No video added yet.";
+    body.appendChild(empty);
+  }
+
+  section.appendChild(body);
+  return section;
+}
+
 function renderFlowRow(flow, row, rowIndex) {
   const wrapper = document.createElement("div");
   wrapper.className = "flow-row-block";
+
+  if (row.rowTitle || row.rowExample || adminMode) {
+    const meta = document.createElement("div");
+    meta.className = "flow-row-meta";
+    if (adminMode) {
+      const titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.value = row.rowTitle || "";
+      titleInput.placeholder = "Row title";
+      titleInput.className = "panel-title-input";
+      titleInput.addEventListener("input", () => {
+        row.rowTitle = titleInput.value;
+      });
+      const exampleInput = document.createElement("input");
+      exampleInput.type = "text";
+      exampleInput.value = row.rowExample || "";
+      exampleInput.placeholder = "Row example";
+      exampleInput.className = "panel-title-input";
+      exampleInput.addEventListener("input", () => {
+        row.rowExample = exampleInput.value;
+      });
+      meta.appendChild(titleInput);
+      meta.appendChild(exampleInput);
+    } else {
+      if (row.rowTitle) {
+        const title = document.createElement("div");
+        title.className = "flow-row-title";
+        title.textContent = row.rowTitle;
+        meta.appendChild(title);
+      }
+      if (row.rowExample) {
+        const example = document.createElement("div");
+        example.className = "flow-row-example";
+        example.textContent = row.rowExample;
+        meta.appendChild(example);
+      }
+    }
+    wrapper.appendChild(meta);
+  }
 
   if (row.rowTitle || row.rowExample || adminMode) {
     const meta = document.createElement("div");
@@ -1854,6 +1964,20 @@ function renderAdminToolsBlock(block, index) {
       type: "video",
       title: "Video",
       videos: [],
+    });
+    render();
+  });
+
+  const addYoutube = document.createElement("button");
+  addYoutube.className = "btn btn-outline";
+  addYoutube.type = "button";
+  addYoutube.textContent = "Add YouTube block";
+  addYoutube.addEventListener("click", () => {
+    state.blocks.push({
+      id: createId("youtube"),
+      type: "youtube",
+      title: "YouTube",
+      url: "",
     });
     render();
   });
@@ -2721,6 +2845,20 @@ function buildViewerBlock(block, sourceState) {
     `;
   }
 
+  if (block.type === "youtube") {
+    const embedUrl = getYouTubeEmbedUrl(block.url || "");
+    return `
+      <section class="panel" id="${block.id}">
+        <div class="panel-header">
+          <h2>${escapeHtml(block.title || "YouTube")}</h2>
+        </div>
+        <div class="panel-body">
+          ${embedUrl ? `<iframe class="youtube-frame" src="${escapeHtml(embedUrl)}" allowfullscreen></iframe>` : "<p class=\"empty-state\">Add a YouTube URL in admin mode.</p>"}
+        </div>
+      </section>
+    `;
+  }
+
   return "";
 }
 
@@ -2909,6 +3047,10 @@ adminToggle.addEventListener("click", () => {
 
 addBlockBtn.addEventListener("click", () => {
   showAddBlockMenu();
+});
+
+window.addEventListener("resize", () => {
+  updateScrollOffset();
 });
 
 window.addEventListener("resize", () => {
