@@ -60,16 +60,17 @@ a {
 .header-brand {
   display: flex;
   gap: 1.5rem;
-  align-items: center;
+  align-items: stretch;
 }
 
 .header-logo {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
+  width: 120px;
+  height: 100%;
+  object-fit: cover;
+  align-self: stretch;
   border-radius: 8px;
-  border: 1px solid var(--line);
-  background: rgba(18, 26, 38, 0.6);
+  border: none;
+  background: transparent;
 }
 
 .header-logo-editor {
@@ -265,12 +266,20 @@ main {
   border-radius: 10px;
   border: 1px solid var(--line);
   display: grid;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .rule-card .rule-subtitle {
   color: var(--muted);
   font-size: 0.9rem;
+  margin-top: 0.1rem;
+  margin-bottom: 0.1rem;
+}
+
+.rule-card .rule-body {
+  border-top: 1px solid rgba(36, 50, 74, 0.5);
+  padding-top: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 .rule-card .rule-body p {
@@ -282,10 +291,10 @@ main {
 .note-box {
   border: 1px solid rgba(255, 206, 107, 0.6);
   background: rgba(255, 206, 107, 0.12);
-  color: var(--warning);
-  padding: 0.6rem 0.75rem;
+  color: var(--muted);
+  padding: 0.5rem 0.65rem;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   line-height: 1.4;
 }
 
@@ -310,6 +319,8 @@ main {
   border: 1px solid var(--line);
   padding: 1rem;
   border-radius: 10px;
+  display: grid;
+  gap: 0.5rem;
 }
 
 .flow-row {
@@ -323,6 +334,10 @@ main {
 .flow-row-block {
   display: grid;
   gap: 0.5rem;
+}
+
+.flow-card > .flow-row-block:first-of-type {
+  margin-top: 0.35rem;
 }
 
 .flow-row-block + .flow-row-block {
@@ -393,20 +408,6 @@ main {
   color: var(--accent-strong);
 }
 
-.flow-legend {
-  font-size: 0.75rem;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.flow-legend-editor {
-  display: grid;
-  gap: 0.4rem;
-  grid-template-columns: repeat(2, minmax(160px, 1fr));
-}
-
 .flow-example-row {
   margin-top: 0.75rem;
   display: flex;
@@ -432,20 +433,38 @@ main {
 
 .flow-editor {
   margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--line);
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
+}
+
+.flow-editor-panel {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem 0.6rem;
+  background: rgba(18, 26, 38, 0.4);
+}
+
+.flow-editor-panel summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+  list-style: none;
+}
+
+.flow-editor-panel summary::-webkit-details-marker {
+  display: none;
 }
 
 .flow-editor-row {
   display: grid;
   gap: 0.4rem;
+  margin-top: 0.5rem;
 }
 
 .flow-editor-item {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(200px, 2fr) minmax(160px, 1fr) auto;
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) minmax(180px, 1fr) auto;
   gap: 0.5rem;
   align-items: center;
 }
@@ -468,6 +487,22 @@ main {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.flow-node-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.flow-node-controls input[type="color"] {
+  width: 42px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 6px;
 }
 
 .admin-tools {
@@ -594,9 +629,9 @@ main {
 }
 
 .callout-body {
-  padding: 1rem 1.2rem 1.4rem;
+  padding: 0.85rem 1.1rem 1rem;
   display: none;
-  gap: 0.75rem;
+  gap: 0.6rem;
   border-top: 1px solid var(--line);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -626,11 +661,11 @@ main {
   border: 1px solid var(--line);
   color: var(--text);
   border-radius: 6px;
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.55rem;
 }
 
 .field textarea {
-  min-height: 80px;
+  min-height: 70px;
   resize: vertical;
 }
 
@@ -719,9 +754,9 @@ main {
   border: 1px solid rgba(255, 206, 107, 0.6);
   background: rgba(255, 206, 107, 0.12);
   color: var(--warning);
-  padding: 0.6rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   line-height: 1.4;
 }
 
@@ -768,6 +803,50 @@ main {
   width: 100%;
 }
 
+.video-title {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.video-title-input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  width: 100%;
+}
+
+.block-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.block-context {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.panel-context-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0;
+  min-width: 200px;
+  width: 100%;
+}
+
+.panel-context-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(18, 26, 38, 0.5);
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+}
+
 .local-video,
 .youtube-frame {
   width: 100%;
@@ -798,6 +877,11 @@ input[type="file"] {
   .header-brand {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .header-logo {
+    width: min(180px, 100%);
+    height: auto;
   }
 
   .header-actions {

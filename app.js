@@ -51,12 +51,7 @@ const DEFAULT_STATE = {
       id: "flows-block",
       type: "flows",
       title: "Flow Diagrams",
-      legend: {
-        arrowALabel: "Arrow A",
-        arrowADesc: "Short breath (3–5s, no name)",
-        arrowBLabel: "Arrow B",
-        arrowBDesc: "Time passed (name required)",
-      },
+      contextText: "",
       flows: [
         {
           id: "flow-target",
@@ -67,7 +62,7 @@ const DEFAULT_STATE = {
             {
               id: "flow-target-row-1",
               rowTitle: "Target acquisition",
-              rowExample: "Lead calls target, team moves through visual states.",
+              rowContext: "Lead calls target, team moves through visual states.",
               elements: [
                 { id: "el-1", type: "node", text: "Target", role: "shotCaller", emphasis: false },
                 { id: "el-2", type: "node", text: "Looking / Seen", role: "yourself", emphasis: false },
@@ -77,7 +72,7 @@ const DEFAULT_STATE = {
             {
               id: "flow-target-row-2",
               rowTitle: "Effectiveness states",
-              rowExample: "Shared truth drives next step.",
+              rowContext: "Shared truth drives next step.",
               elements: [
                 { id: "el-4", type: "node", text: "Effective / Not effective", role: "yourself", emphasis: false },
                 { id: "el-5", type: "node", text: "Red (TARGET)", role: "enemyTarget", emphasis: false },
@@ -89,7 +84,7 @@ const DEFAULT_STATE = {
             {
               id: "flow-target-row-3",
               rowTitle: "Cycle restart",
-              rowExample: "",
+              rowContext: "",
               elements: [{ id: "el-9", type: "node", text: "New Target", role: "shotCaller", emphasis: false }],
             },
           ],
@@ -103,7 +98,7 @@ const DEFAULT_STATE = {
             {
               id: "flow-regroup-row-1",
               rowTitle: "Regroup flow",
-              rowExample: "Anchor call with readiness confirmation.",
+              rowContext: "Anchor call with readiness confirmation.",
               elements: [
                 { id: "el-10", type: "node", text: "Regroup on", role: "shotCaller", emphasis: false },
                 { id: "el-11", type: "node", text: "Distance (optional)", role: "yourself", emphasis: false },
@@ -121,7 +116,7 @@ const DEFAULT_STATE = {
             {
               id: "flow-threat-row-1",
               rowTitle: "Threat chain",
-              rowExample: "Personal threat interrupts at any time.",
+              rowContext: "Personal threat interrupts at any time.",
               elements: [
                 { id: "el-13", type: "node", text: "Aggro", role: "yourself", emphasis: false },
                 { id: "el-14", type: "node", text: "Evasive", role: "yourself", emphasis: false },
@@ -132,7 +127,7 @@ const DEFAULT_STATE = {
             {
               id: "flow-threat-row-2",
               rowTitle: "",
-              rowExample: "",
+              rowContext: "",
               elements: [
                 { id: "el-17", type: "node", text: "Red (PERSONAL)", role: "yourself", emphasis: true },
                 { id: "el-18", type: "note", text: "Critical state interrupt at any time" },
@@ -512,6 +507,7 @@ let state = loadState();
 let adminMode = loadAdmin();
 let allowNameEdit = loadNameEdit();
 let expandedIds = new Set();
+let editingBlocks = new Set();
 
 const headerContent = document.getElementById("headerContent");
 const footerContent = document.getElementById("footerContent");
@@ -589,11 +585,21 @@ function normalizeState(source) {
     ...(nextState.roleLabels || {}),
   };
 
-  nextState.callouts = (nextState.callouts || []).map((callout) => ({
-    importantNote: "",
-    ...callout,
-    importantNote: callout.importantNote || "",
-  }));
+  nextState.callouts = (nextState.callouts || []).map((callout) => {
+    const normalizedVideos = (callout.videos || []).map((video) => ({
+      id: video.id || createId("video"),
+      title: video.title || "",
+      type: video.type,
+      src: video.src,
+    }));
+    return {
+      importantNote: "",
+      videos: normalizedVideos,
+      ...callout,
+      importantNote: callout.importantNote || "",
+      videos: normalizedVideos,
+    };
+  });
 
   nextState.blocks = (nextState.blocks || []).map((block) => {
     if (block.type === "youtube") {
@@ -602,12 +608,17 @@ function normalizeState(source) {
         type: "video",
         title: block.title || "Video",
         videos: block.url
-          ? [{ id: createId("video"), type: "youtube", src: block.url }]
+          ? [{ id: createId("video"), type: "youtube", src: block.url, title: "" }]
           : [],
       };
       return migratedBlock;
     }
-    block.videos = block.videos || [];
+    block.videos = (block.videos || []).map((video) => ({
+      id: video.id || createId("video"),
+      title: video.title || "",
+      type: video.type,
+      src: video.src,
+    }));
     if (block.type === "rules") {
       block.sections = (block.sections || []).map((section) => {
         if (Array.isArray(section.items) && !section.body) {
@@ -624,22 +635,22 @@ function normalizeState(source) {
       });
     }
     if (block.type === "flows") {
-      block.legend = {
-        ...deepClone(DEFAULT_STATE.blocks.find((item) => item.type === "flows")?.legend || {}),
-        ...(block.legend || {}),
-      };
+      if (typeof block.contextText !== "string") {
+        block.contextText = "";
+      }
       block.flows = (block.flows || []).map((flow) => {
         flow.exampleLabel = flow.exampleLabel || "Example";
         flow.exampleTargetId = flow.exampleTargetId || "";
         flow.rows = (flow.rows || []).map((row) => {
           row.rowTitle = row.rowTitle || "";
-          row.rowExample = row.rowExample || "";
+          row.rowContext = row.rowContext || row.rowExample || "";
           const normalizedElements = [];
           (row.elements || []).forEach((element, index) => {
             if (element.type === "node") {
               if (!element.role) {
                 element.role = "yourself";
               }
+              element.color = element.color || "";
             }
             if (element.type === "arrow") {
               element.kind = element.kind || "breath";
@@ -655,6 +666,11 @@ function normalizeState(source) {
         });
         return flow;
       });
+    }
+    if (block.type === "calloutGroup") {
+      if (typeof block.contextText !== "string") {
+        block.contextText = "";
+      }
     }
     return block;
   });
@@ -682,10 +698,13 @@ function deepClone(value) {
 }
 
 function updateAdminUI() {
-  adminStatus.textContent = adminMode ? "Admin unlocked" : "Viewer mode";
+  adminStatus.textContent = adminMode ? "Edit mode" : "Viewer mode";
   adminStatus.style.color = adminMode ? "var(--success)" : "var(--muted)";
-  adminToggle.textContent = adminMode ? "Lock" : "Admin";
+  adminToggle.textContent = adminMode ? "Exit edit" : "Edit";
   document.body.classList.toggle("admin-active", adminMode);
+  if (!adminMode) {
+    editingBlocks = new Set();
+  }
   render();
 }
 
@@ -699,6 +718,19 @@ function toggleAdmin() {
   adminMode = !adminMode;
   localStorage.setItem(ADMIN_KEY, adminMode ? "true" : "false");
   updateAdminUI();
+}
+
+function toggleBlockEditing(blockId) {
+  if (editingBlocks.has(blockId)) {
+    editingBlocks.delete(blockId);
+  } else {
+    editingBlocks.add(blockId);
+  }
+  render();
+}
+
+function isBlockEditing(blockId) {
+  return adminMode && editingBlocks.has(blockId);
 }
 
 function setExpanded(id, expanded) {
@@ -958,11 +990,12 @@ function renderRulesBlock(block, index) {
   section.className = "panel";
   section.id = block.id;
   section.dataset.title = block.title || "Rules";
+  const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
   header.className = "panel-header";
-  header.appendChild(renderBlockTitle(block, "h2"));
-  header.appendChild(renderBlockActions(block, index));
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  header.appendChild(renderBlockActions(block, index, editing));
   section.appendChild(header);
 
   const body = document.createElement("div");
@@ -972,7 +1005,7 @@ function renderRulesBlock(block, index) {
     const card = document.createElement("div");
     card.className = "rule-card";
 
-    if (adminMode) {
+    if (editing) {
       const titleInput = document.createElement("input");
       titleInput.type = "text";
       titleInput.value = rulesSection.title;
@@ -1055,7 +1088,7 @@ function renderRulesBlock(block, index) {
       }
     }
 
-    if (adminMode) {
+    if (editing) {
       const actions = document.createElement("div");
       actions.className = "admin-row";
       const removeSection = document.createElement("button");
@@ -1073,7 +1106,7 @@ function renderRulesBlock(block, index) {
     body.appendChild(card);
   });
 
-  if (adminMode) {
+  if (editing) {
     const addSection = document.createElement("button");
     addSection.className = "btn btn-outline";
     addSection.type = "button";
@@ -1092,7 +1125,7 @@ function renderRulesBlock(block, index) {
   }
 
   section.appendChild(body);
-  const videos = renderVideoSection(block, { panelPadding: true });
+  const videos = renderVideoSection(block, { panelPadding: true, editable: editing });
   if (videos) {
     section.appendChild(videos);
   }
@@ -1104,76 +1137,28 @@ function renderFlowsBlock(block, index) {
   section.className = "panel";
   section.id = block.id;
   section.dataset.title = block.title || "Flows";
-  if (!block.legend) {
-    block.legend = deepClone(DEFAULT_STATE.blocks.find((item) => item.type === "flows").legend);
-  }
+  const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
   header.className = "panel-header";
-  header.appendChild(renderBlockTitle(block, "h2"));
-  const legend = document.createElement("div");
-  legend.className = "flow-legend";
-  if (adminMode) {
-    const legendInputs = document.createElement("div");
-    legendInputs.className = "flow-legend-editor";
-    const arrowALabel = document.createElement("input");
-    arrowALabel.type = "text";
-    arrowALabel.value = block.legend?.arrowALabel || "";
-    arrowALabel.placeholder = "Arrow A label";
-    arrowALabel.className = "panel-title-input";
-    arrowALabel.addEventListener("input", () => {
-      block.legend.arrowALabel = arrowALabel.value;
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  if (editing) {
+    const contextInput = document.createElement("input");
+    contextInput.type = "text";
+    contextInput.value = block.contextText || "";
+    contextInput.placeholder = "Add a short note for this block";
+    contextInput.className = "panel-context-input";
+    contextInput.addEventListener("input", () => {
+      block.contextText = contextInput.value;
     });
-    const arrowADesc = document.createElement("input");
-    arrowADesc.type = "text";
-    arrowADesc.value = block.legend?.arrowADesc || "";
-    arrowADesc.placeholder = "Arrow A description";
-    arrowADesc.className = "panel-title-input";
-    arrowADesc.addEventListener("input", () => {
-      block.legend.arrowADesc = arrowADesc.value;
-    });
-    const arrowBLabel = document.createElement("input");
-    arrowBLabel.type = "text";
-    arrowBLabel.value = block.legend?.arrowBLabel || "";
-    arrowBLabel.placeholder = "Arrow B label";
-    arrowBLabel.className = "panel-title-input";
-    arrowBLabel.addEventListener("input", () => {
-      block.legend.arrowBLabel = arrowBLabel.value;
-    });
-    const arrowBDesc = document.createElement("input");
-    arrowBDesc.type = "text";
-    arrowBDesc.value = block.legend?.arrowBDesc || "";
-    arrowBDesc.placeholder = "Arrow B description";
-    arrowBDesc.className = "panel-title-input";
-    arrowBDesc.addEventListener("input", () => {
-      block.legend.arrowBDesc = arrowBDesc.value;
-    });
-    legendInputs.appendChild(arrowALabel);
-    legendInputs.appendChild(arrowADesc);
-    legendInputs.appendChild(arrowBLabel);
-    legendInputs.appendChild(arrowBDesc);
-    legend.appendChild(legendInputs);
-  } else {
-    const legendLabel = document.createElement("span");
-    legendLabel.innerHTML = "<strong>Legend:</strong>";
-    const arrowA = document.createElement("span");
-    arrowA.className = "flow-arrow";
-    arrowA.textContent = "→";
-    const arrowAText = document.createElement("span");
-    arrowAText.textContent = `${block.legend?.arrowALabel || "Arrow A"} — ${block.legend?.arrowADesc || ""}`.trim();
-    const arrowB = document.createElement("span");
-    arrowB.className = "flow-arrow arrow-time";
-    arrowB.textContent = "⏱→";
-    const arrowBText = document.createElement("span");
-    arrowBText.textContent = `${block.legend?.arrowBLabel || "Arrow B"} — ${block.legend?.arrowBDesc || ""}`.trim();
-    legend.appendChild(legendLabel);
-    legend.appendChild(arrowA);
-    legend.appendChild(arrowAText);
-    legend.appendChild(arrowB);
-    legend.appendChild(arrowBText);
+    header.appendChild(contextInput);
+  } else if (block.contextText) {
+    const context = document.createElement("div");
+    context.className = "block-context";
+    context.textContent = block.contextText;
+    header.appendChild(context);
   }
-  header.appendChild(legend);
-  header.appendChild(renderBlockActions(block, index));
+  header.appendChild(renderBlockActions(block, index, editing));
   section.appendChild(header);
 
   const body = document.createElement("div");
@@ -1183,7 +1168,7 @@ function renderFlowsBlock(block, index) {
     const card = document.createElement("div");
     card.className = "flow-card";
 
-    if (adminMode) {
+    if (editing) {
       const titleInput = document.createElement("input");
       titleInput.type = "text";
       titleInput.value = flow.title;
@@ -1199,31 +1184,10 @@ function renderFlowsBlock(block, index) {
     }
 
     flow.rows.forEach((row, rowIndex) => {
-      card.appendChild(renderFlowRow(flow, row, rowIndex));
+      card.appendChild(renderFlowRow(flow, row, rowIndex, editing));
     });
 
-    const legend = document.createElement("div");
-    legend.className = "flow-legend";
-    const legendLabel = document.createElement("span");
-    legendLabel.innerHTML = "<strong>Legend:</strong>";
-    const arrowA = document.createElement("span");
-    arrowA.className = "flow-arrow";
-    arrowA.textContent = "→";
-    const arrowAText = document.createElement("span");
-    arrowAText.textContent = "Short breath (3–5s, no name)";
-    const arrowB = document.createElement("span");
-    arrowB.className = "flow-arrow arrow-time";
-    arrowB.textContent = "⇢";
-    const arrowBText = document.createElement("span");
-    arrowBText.textContent = "Time passed (name required)";
-    legend.appendChild(legendLabel);
-    legend.appendChild(arrowA);
-    legend.appendChild(arrowAText);
-    legend.appendChild(arrowB);
-    legend.appendChild(arrowBText);
-    card.appendChild(legend);
-
-    if (adminMode) {
+    if (editing) {
       const flowActions = document.createElement("div");
       flowActions.className = "admin-row";
 
@@ -1235,8 +1199,8 @@ function renderFlowsBlock(block, index) {
         flow.rows.push({
           id: createId("flow-row"),
           rowTitle: "",
-          rowExample: "",
-          elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false }],
+          rowContext: "",
+          elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false, color: "" }],
         });
         render();
       });
@@ -1257,7 +1221,7 @@ function renderFlowsBlock(block, index) {
 
     const exampleRow = document.createElement("div");
     exampleRow.className = "flow-example-row";
-    if (adminMode) {
+    if (editing) {
       const labelInput = document.createElement("input");
       labelInput.type = "text";
       labelInput.value = flow.exampleLabel || "Example";
@@ -1267,18 +1231,25 @@ function renderFlowsBlock(block, index) {
         flow.exampleLabel = labelInput.value;
       });
       const targetSelect = document.createElement("select");
-      const videoBlocks = state.blocks.filter((item) => item.type === "video");
+      const videoTargets = getVideoTargets();
       const emptyOption = document.createElement("option");
       emptyOption.value = "";
-      emptyOption.textContent = "Select target video block";
+      emptyOption.textContent = "Select target video";
       targetSelect.appendChild(emptyOption);
-      videoBlocks.forEach((item) => {
+      videoTargets.forEach((item) => {
         const option = document.createElement("option");
         option.value = item.id;
-        option.textContent = item.title || "Video";
+        option.textContent = item.label;
         option.selected = item.id === flow.exampleTargetId;
         targetSelect.appendChild(option);
       });
+      if (flow.exampleTargetId && !videoTargets.some((item) => item.id === flow.exampleTargetId)) {
+        const legacyOption = document.createElement("option");
+        legacyOption.value = flow.exampleTargetId;
+        legacyOption.textContent = getLegacyTargetLabel(flow.exampleTargetId);
+        legacyOption.selected = true;
+        targetSelect.appendChild(legacyOption);
+      }
       targetSelect.addEventListener("change", () => {
         flow.exampleTargetId = targetSelect.value;
       });
@@ -1298,7 +1269,7 @@ function renderFlowsBlock(block, index) {
     body.appendChild(card);
   });
 
-  if (adminMode) {
+  if (editing) {
     const addFlow = document.createElement("button");
     addFlow.className = "btn btn-outline";
     addFlow.type = "button";
@@ -1311,8 +1282,8 @@ function renderFlowsBlock(block, index) {
           {
             id: createId("flow-row"),
             rowTitle: "",
-            rowExample: "",
-            elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false }],
+            rowContext: "",
+            elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false, color: "" }],
           },
         ],
       });
@@ -1322,7 +1293,7 @@ function renderFlowsBlock(block, index) {
   }
 
   section.appendChild(body);
-  const videos = renderVideoSection(block, { panelPadding: true });
+  const videos = renderVideoSection(block, { panelPadding: true, editable: editing });
   if (videos) {
     section.appendChild(videos);
   }
@@ -1334,78 +1305,29 @@ function renderVideoBlock(block, index) {
   section.className = "panel";
   section.id = block.id;
   section.dataset.title = block.title || "Video";
+  const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
   header.className = "panel-header";
-  header.appendChild(renderBlockTitle(block, "h2"));
-  header.appendChild(renderBlockActions(block, index));
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  header.appendChild(renderBlockActions(block, index, editing));
   section.appendChild(header);
 
-  const videos = renderVideoSection(block, { showEmpty: !adminMode, panelPadding: true });
+  const videos = renderVideoSection(block, { showEmpty: !adminMode, panelPadding: true, editable: editing });
   if (videos) {
     section.appendChild(videos);
   }
   return section;
 }
 
-function renderYoutubeBlock(block, index) {
-  const section = document.createElement("section");
-  section.className = "panel";
-  section.id = block.id;
-
-  const header = document.createElement("div");
-  header.className = "panel-header";
-  header.appendChild(renderBlockTitle(block, "h2"));
-  header.appendChild(renderBlockActions(block, index));
-  section.appendChild(header);
-
-  const body = document.createElement("div");
-  body.className = "panel-body";
-
-  if (adminMode) {
-    const urlField = renderField("YouTube URL", block.url || "", (value) => {
-      block.url = value;
-      render();
-    }, {
-      type: "text",
-      editable: adminMode,
-    });
-    const titleField = renderField("Optional title", block.title || "", (value) => {
-      block.title = value;
-    }, {
-      type: "text",
-      editable: adminMode,
-    });
-    body.appendChild(urlField);
-    body.appendChild(titleField);
-  }
-
-  const embedUrl = getYouTubeEmbedUrl(block.url || "");
-  if (embedUrl) {
-    const frame = document.createElement("iframe");
-    frame.className = "youtube-frame";
-    frame.src = embedUrl;
-    frame.allowFullscreen = true;
-    body.appendChild(frame);
-  } else if (!adminMode) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "No video added yet.";
-    body.appendChild(empty);
-  }
-
-  section.appendChild(body);
-  return section;
-}
-
-function renderFlowRow(flow, row, rowIndex) {
+function renderFlowRow(flow, row, rowIndex, editing) {
   const wrapper = document.createElement("div");
   wrapper.className = "flow-row-block";
 
-  if (row.rowTitle || row.rowExample || adminMode) {
+  if (row.rowTitle || row.rowContext || editing) {
     const meta = document.createElement("div");
     meta.className = "flow-row-meta";
-    if (adminMode) {
+    if (editing) {
       const titleInput = document.createElement("input");
       titleInput.type = "text";
       titleInput.value = row.rowTitle || "";
@@ -1416,11 +1338,11 @@ function renderFlowRow(flow, row, rowIndex) {
       });
       const exampleInput = document.createElement("input");
       exampleInput.type = "text";
-      exampleInput.value = row.rowExample || "";
-      exampleInput.placeholder = "Row example";
+      exampleInput.value = row.rowContext || "";
+      exampleInput.placeholder = "Context";
       exampleInput.className = "panel-title-input";
       exampleInput.addEventListener("input", () => {
-        row.rowExample = exampleInput.value;
+        row.rowContext = exampleInput.value;
       });
       meta.appendChild(titleInput);
       meta.appendChild(exampleInput);
@@ -1431,49 +1353,10 @@ function renderFlowRow(flow, row, rowIndex) {
         title.textContent = row.rowTitle;
         meta.appendChild(title);
       }
-      if (row.rowExample) {
+      if (row.rowContext) {
         const example = document.createElement("div");
         example.className = "flow-row-example";
-        example.textContent = row.rowExample;
-        meta.appendChild(example);
-      }
-    }
-    wrapper.appendChild(meta);
-  }
-
-  if (row.rowTitle || row.rowExample || adminMode) {
-    const meta = document.createElement("div");
-    meta.className = "flow-row-meta";
-    if (adminMode) {
-      const titleInput = document.createElement("input");
-      titleInput.type = "text";
-      titleInput.value = row.rowTitle || "";
-      titleInput.placeholder = "Row title";
-      titleInput.className = "panel-title-input";
-      titleInput.addEventListener("input", () => {
-        row.rowTitle = titleInput.value;
-      });
-      const exampleInput = document.createElement("input");
-      exampleInput.type = "text";
-      exampleInput.value = row.rowExample || "";
-      exampleInput.placeholder = "Row example";
-      exampleInput.className = "panel-title-input";
-      exampleInput.addEventListener("input", () => {
-        row.rowExample = exampleInput.value;
-      });
-      meta.appendChild(titleInput);
-      meta.appendChild(exampleInput);
-    } else {
-      if (row.rowTitle) {
-        const title = document.createElement("div");
-        title.className = "flow-row-title";
-        title.textContent = row.rowTitle;
-        meta.appendChild(title);
-      }
-      if (row.rowExample) {
-        const example = document.createElement("div");
-        example.className = "flow-row-example";
-        example.textContent = row.rowExample;
+        example.textContent = row.rowContext;
         meta.appendChild(example);
       }
     }
@@ -1493,6 +1376,10 @@ function renderFlowRow(flow, row, rowIndex) {
       const roleClass =
         element.role === "shotCaller" ? "role-shot" : element.role === "enemyTarget" ? "role-enemy" : "role-yourself";
       node.className = `flow-node ${roleClass}`;
+      const nodeStyles = getNodeStyles(element);
+      if (nodeStyles) {
+        node.style.cssText = nodeStyles;
+      }
       node.textContent = element.text;
       nodeWrap.appendChild(label);
       nodeWrap.appendChild(node);
@@ -1523,12 +1410,17 @@ function renderFlowRow(flow, row, rowIndex) {
   });
   wrapper.appendChild(rowEl);
 
-  if (!adminMode) {
+  if (!editing) {
     return wrapper;
   }
 
   const editor = document.createElement("div");
   editor.className = "flow-editor";
+  const editorPanel = document.createElement("details");
+  editorPanel.className = "flow-editor-panel";
+  const summary = document.createElement("summary");
+  summary.textContent = "Edit row";
+  editorPanel.appendChild(summary);
   const rowGroup = document.createElement("div");
   rowGroup.className = "flow-editor-row";
 
@@ -1551,6 +1443,7 @@ function renderFlowRow(flow, row, rowIndex) {
       }
       if (element.type !== "node") {
         delete element.role;
+        delete element.color;
       }
       render();
     });
@@ -1578,7 +1471,22 @@ function renderFlowRow(flow, row, rowIndex) {
         element.role = roleSelect.value;
         render();
       });
-      extraControl = roleSelect;
+      const colorInput = document.createElement("input");
+      colorInput.type = "color";
+      colorInput.value = element.color || getRoleDefaultColor(element.role);
+      colorInput.addEventListener("input", () => {
+        element.color = colorInput.value;
+        render();
+      });
+      colorInput.addEventListener("change", () => {
+        element.color = colorInput.value;
+        render();
+      });
+      const nodeControls = document.createElement("div");
+      nodeControls.className = "flow-node-controls";
+      nodeControls.appendChild(roleSelect);
+      nodeControls.appendChild(colorInput);
+      extraControl = nodeControls;
     }
     if (element.type === "arrow") {
       const arrowSelect = document.createElement("select");
@@ -1634,7 +1542,7 @@ function renderFlowRow(flow, row, rowIndex) {
     rowGroup.appendChild(item);
   });
 
-  editor.appendChild(rowGroup);
+  editorPanel.appendChild(rowGroup);
 
   const rowActions = document.createElement("div");
   rowActions.className = "flow-editor-actions";
@@ -1692,7 +1600,8 @@ function renderFlowRow(flow, row, rowIndex) {
   rowActions.appendChild(addDivider);
   rowActions.appendChild(addNote);
   rowActions.appendChild(removeRow);
-  editor.appendChild(rowActions);
+  editorPanel.appendChild(rowActions);
+  editor.appendChild(editorPanel);
 
   wrapper.appendChild(editor);
   return wrapper;
@@ -1703,11 +1612,14 @@ function renderCalloutGroupBlock(block, index) {
   section.className = "category-section callout-group-card";
   section.id = block.id;
   section.dataset.title = block.title || "Callouts";
+  const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
   header.className = "category-header";
 
-  if (adminMode) {
+  const titleWrap = document.createElement("div");
+  titleWrap.className = "block-title-wrap";
+  if (editing) {
     const titleInput = document.createElement("input");
     titleInput.type = "text";
     titleInput.value = block.title;
@@ -1716,17 +1628,33 @@ function renderCalloutGroupBlock(block, index) {
       block.title = titleInput.value;
       renderNav();
     });
-    header.appendChild(titleInput);
+    const contextInput = document.createElement("input");
+    contextInput.type = "text";
+    contextInput.value = block.contextText || "";
+    contextInput.placeholder = "Add group context";
+    contextInput.className = "panel-context-input";
+    contextInput.addEventListener("input", () => {
+      block.contextText = contextInput.value;
+    });
+    titleWrap.appendChild(titleInput);
+    titleWrap.appendChild(contextInput);
   } else {
     const title = document.createElement("h2");
     title.textContent = block.title;
-    header.appendChild(title);
+    titleWrap.appendChild(title);
+    if (block.contextText) {
+      const context = document.createElement("span");
+      context.className = "block-context";
+      context.textContent = block.contextText;
+      titleWrap.appendChild(context);
+    }
   }
+  header.appendChild(titleWrap);
 
   const actionWrap = document.createElement("div");
   actionWrap.className = "callout-group-actions";
 
-  if (adminMode) {
+  if (editing) {
     const addBtn = document.createElement("button");
     addBtn.className = "btn btn-outline";
     addBtn.type = "button";
@@ -1738,7 +1666,7 @@ function renderCalloutGroupBlock(block, index) {
     actionWrap.appendChild(addBtn);
   }
 
-  actionWrap.appendChild(renderBlockActions(block, index));
+  actionWrap.appendChild(renderBlockActions(block, index, editing));
   header.appendChild(actionWrap);
   section.appendChild(header);
 
@@ -1753,10 +1681,10 @@ function renderCalloutGroupBlock(block, index) {
   }
 
   groupCallouts.forEach((item) => {
-    section.appendChild(renderCalloutCard(item));
+    section.appendChild(renderCalloutCard(item, { editable: editing }));
   });
 
-  const videos = renderVideoSection(block, { panelPadding: false });
+  const videos = renderVideoSection(block, { panelPadding: false, editable: editing });
   if (videos) {
     section.appendChild(videos);
   }
@@ -1768,15 +1696,24 @@ function renderAdminToolsBlock(block, index) {
   const section = document.createElement("section");
   section.className = "panel";
   section.id = block.id;
+  const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
   header.className = "panel-header";
-  header.appendChild(renderBlockTitle(block, "h2"));
-  header.appendChild(renderBlockActions(block, index));
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  header.appendChild(renderBlockActions(block, index, editing));
   section.appendChild(header);
 
   const body = document.createElement("div");
   body.className = "panel-body admin-tools";
+  if (!editing) {
+    const note = document.createElement("p");
+    note.className = "admin-note";
+    note.textContent = "Select Edit to manage admin tools, exports, and settings.";
+    body.appendChild(note);
+    section.appendChild(body);
+    return section;
+  }
 
   const toggleRow = document.createElement("div");
   toggleRow.className = "admin-row";
@@ -1917,7 +1854,7 @@ function renderAdminToolsBlock(block, index) {
       type: "flows",
       title: "Flow Diagrams",
       videos: [],
-      legend: deepClone(DEFAULT_STATE.blocks.find((item) => item.type === "flows").legend),
+      contextText: "",
       flows: [
         {
           id: createId("flow"),
@@ -1928,8 +1865,8 @@ function renderAdminToolsBlock(block, index) {
             {
               id: createId("flow-row"),
               rowTitle: "",
-              rowExample: "",
-              elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false }],
+              rowContext: "",
+              elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false, color: "" }],
             },
           ],
         },
@@ -1968,20 +1905,6 @@ function renderAdminToolsBlock(block, index) {
     render();
   });
 
-  const addYoutube = document.createElement("button");
-  addYoutube.className = "btn btn-outline";
-  addYoutube.type = "button";
-  addYoutube.textContent = "Add YouTube block";
-  addYoutube.addEventListener("click", () => {
-    state.blocks.push({
-      id: createId("youtube"),
-      type: "youtube",
-      title: "YouTube",
-      url: "",
-    });
-    render();
-  });
-
   blockRow.appendChild(addRules);
   blockRow.appendChild(addFlows);
   blockRow.appendChild(addGroup);
@@ -1997,8 +1920,8 @@ function renderAdminToolsBlock(block, index) {
   return section;
 }
 
-function renderBlockTitle(block, tag) {
-  if (!adminMode) {
+function renderBlockTitle(block, tag, editing = false) {
+  if (!adminMode || !editing) {
     const heading = document.createElement(tag);
     heading.textContent = block.title;
     return heading;
@@ -2014,12 +1937,21 @@ function renderBlockTitle(block, tag) {
   return input;
 }
 
-function renderBlockActions(block, index) {
+function renderBlockActions(block, index, editing = false) {
   const actions = document.createElement("div");
   actions.className = "block-actions";
   if (!adminMode) {
     return actions;
   }
+
+  const editBtn = document.createElement("button");
+  editBtn.className = "btn btn-ghost";
+  editBtn.type = "button";
+  editBtn.textContent = editing ? "Done" : "Edit";
+  editBtn.title = "Toggle block editing";
+  editBtn.addEventListener("click", () => {
+    toggleBlockEditing(block.id);
+  });
 
   const moveUp = document.createElement("button");
   moveUp.className = "btn btn-ghost";
@@ -2054,13 +1986,15 @@ function renderBlockActions(block, index) {
     render();
   });
 
+  actions.appendChild(editBtn);
   actions.appendChild(moveUp);
   actions.appendChild(moveDown);
   actions.appendChild(deleteBtn);
   return actions;
 }
 
-function renderCalloutCard(item) {
+function renderCalloutCard(item, options = {}) {
+  const editable = Boolean(options.editable);
   const card = document.createElement("div");
   card.className = "callout-card";
   const cardId = `${item.groupId}-${item.callName}`;
@@ -2091,7 +2025,7 @@ function renderCalloutCard(item) {
   const actions = document.createElement("div");
   actions.className = "callout-actions";
 
-  if (adminMode) {
+  if (editable) {
     const upBtn = document.createElement("button");
     upBtn.className = "btn btn-ghost";
     upBtn.type = "button";
@@ -2120,35 +2054,37 @@ function renderCalloutCard(item) {
   const body = document.createElement("div");
   body.className = "callout-body";
 
-  body.appendChild(
-    renderField("Call name", item.callName, (value) => {
-      const previousId = card.dataset.cardId;
-      item.callName = value;
-      name.textContent = value || "New call";
-      const nextId = `${item.groupId}-${item.callName}`;
-      card.dataset.cardId = nextId;
-      if (previousId && expandedIds.has(previousId)) {
-        expandedIds.delete(previousId);
-        expandedIds.add(nextId);
-      }
-    }, {
-      type: "text",
-      editable: adminMode && allowNameEdit,
-      className: "span-two",
-    })
-  );
+  if (editable) {
+    body.appendChild(
+      renderField("Call name", item.callName, (value) => {
+        const previousId = card.dataset.cardId;
+        item.callName = value;
+        name.textContent = value || "New call";
+        const nextId = `${item.groupId}-${item.callName}`;
+        card.dataset.cardId = nextId;
+        if (previousId && expandedIds.has(previousId)) {
+          expandedIds.delete(previousId);
+          expandedIds.add(nextId);
+        }
+      }, {
+        type: "text",
+        editable: allowNameEdit,
+        className: "span-two",
+      })
+    );
+  }
 
   body.appendChild(
     renderField("Context", item.context, (value) => {
       item.context = value;
     }, {
       type: "textarea",
-      editable: adminMode,
+      editable: editable,
       className: "half",
     })
   );
 
-  const whenField = renderWhenList(item);
+  const whenField = renderWhenList(item, editable);
   whenField.classList.add("half");
   body.appendChild(whenField);
 
@@ -2157,7 +2093,7 @@ function renderCalloutCard(item) {
       item.meaning = value;
     }, {
       type: "textarea",
-      editable: adminMode,
+      editable: editable,
       className: "half",
     })
   );
@@ -2173,39 +2109,29 @@ function renderCalloutCard(item) {
         render();
       },
       {
-        editable: adminMode,
+        editable: editable,
         className: "half",
       }
     )
   );
 
   body.appendChild(
-    renderField("Response expected", item.responseExpected, (value) => {
+    renderField("Expected Outcome", item.responseExpected, (value) => {
       item.responseExpected = value;
     }, {
       type: "text",
-      editable: adminMode,
+      editable: editable,
       className: "span-two",
     })
   );
 
-  body.appendChild(
-    renderField("Notes", item.notes, (value) => {
-      item.notes = value;
-    }, {
-      type: "textarea",
-      editable: adminMode,
-      className: "span-two",
-    })
-  );
-
-  if (adminMode) {
+  if (editable) {
     body.appendChild(
       renderField("Important note", item.importantNote, (value) => {
         item.importantNote = value;
       }, {
         type: "textarea",
-        editable: adminMode,
+        editable: editable,
         className: "span-two",
       })
     );
@@ -2216,7 +2142,23 @@ function renderCalloutCard(item) {
     body.appendChild(noteBox);
   }
 
-  if (adminMode) {
+  const calloutVideos = renderVideoSection(item, { panelPadding: false, editable: editable, inCallout: true });
+  if (calloutVideos) {
+    calloutVideos.classList.add("span-two");
+    body.appendChild(calloutVideos);
+  }
+
+  body.appendChild(
+    renderField("Notes", item.notes, (value) => {
+      item.notes = value;
+    }, {
+      type: "textarea",
+      editable: editable,
+      className: "span-two",
+    })
+  );
+
+  if (editable) {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-danger span-two";
     deleteBtn.type = "button";
@@ -2286,14 +2228,14 @@ function renderSelect(labelText, value, optionsList, onChange, options) {
   return field;
 }
 
-function renderWhenList(item) {
+function renderWhenList(item, editable) {
   const field = document.createElement("div");
   field.className = "field";
   const label = document.createElement("label");
   label.textContent = "When to use";
   field.appendChild(label);
 
-  if (!adminMode) {
+  if (!editable) {
     const list = document.createElement("ul");
     list.className = "readonly";
     (item.whenToUse || []).forEach((entry) => {
@@ -2349,14 +2291,17 @@ function renderWhenList(item) {
 function renderVideoSection(block, options = {}) {
   const videos = block.videos || [];
   const hasVideos = videos.length > 0;
-  if (!adminMode && !hasVideos && !options.showEmpty) {
+  const editable = Boolean(options.editable);
+  if (!editable && !hasVideos && !options.showEmpty) {
     return null;
   }
 
   const section = document.createElement("div");
-  section.className = `block-videos${options.panelPadding ? " panel-body" : ""}`;
+  section.className = `block-videos${options.panelPadding ? " panel-body" : ""}${
+    options.inCallout ? " callout-videos" : ""
+  }`;
 
-  if (adminMode) {
+  if (editable) {
     const controls = document.createElement("div");
     controls.className = "video-controls";
 
@@ -2376,7 +2321,7 @@ function renderVideoSection(block, options = {}) {
       if (!Array.isArray(block.videos)) {
         block.videos = [];
       }
-      block.videos.push({ id: createId("video"), type: "youtube", src: value });
+      block.videos.push({ id: createId("video"), type: "youtube", src: value, title: "" });
       urlInput.value = "";
       render();
     });
@@ -2399,7 +2344,7 @@ function renderVideoSection(block, options = {}) {
         if (!Array.isArray(block.videos)) {
           block.videos = [];
         }
-        block.videos.push({ id: createId("video"), type: "local", src: reader.result });
+        block.videos.push({ id: createId("video"), type: "local", src: reader.result, title: "" });
         render();
       };
       reader.readAsDataURL(file);
@@ -2427,6 +2372,23 @@ function renderVideoSection(block, options = {}) {
     videos.forEach((video, index) => {
       const card = document.createElement("div");
       card.className = "video-card";
+      card.id = getVideoAnchorId(video);
+      if (editable) {
+        const titleInput = document.createElement("input");
+        titleInput.type = "text";
+        titleInput.value = video.title || "";
+        titleInput.placeholder = "Video title";
+        titleInput.className = "video-title-input";
+        titleInput.addEventListener("input", () => {
+          video.title = titleInput.value;
+        });
+        card.appendChild(titleInput);
+      } else if (video.title) {
+        const title = document.createElement("div");
+        title.className = "video-title";
+        title.textContent = video.title;
+        card.appendChild(title);
+      }
       if (video.type === "youtube") {
         const embedUrl = getYouTubeEmbedUrl(video.src || "");
         if (embedUrl) {
@@ -2449,7 +2411,7 @@ function renderVideoSection(block, options = {}) {
         card.appendChild(videoEl);
       }
 
-      if (adminMode) {
+      if (editable) {
         const removeBtn = document.createElement("button");
         removeBtn.className = "btn btn-danger";
         removeBtn.type = "button";
@@ -2469,6 +2431,43 @@ function renderVideoSection(block, options = {}) {
   return section;
 }
 
+function getVideoAnchorId(video) {
+  return `video-${video.id}`;
+}
+
+function getVideoTargets() {
+  const targets = [];
+  state.blocks.forEach((block) => {
+    const videos = block.videos || [];
+    videos.forEach((video, index) => {
+      const title = video.title || `Video ${index + 1}`;
+      targets.push({
+        id: getVideoAnchorId(video),
+        label: `${block.title || "Video"} — ${title}`,
+      });
+    });
+  });
+  state.callouts.forEach((callout) => {
+    const videos = callout.videos || [];
+    videos.forEach((video, index) => {
+      const title = video.title || `Video ${index + 1}`;
+      targets.push({
+        id: getVideoAnchorId(video),
+        label: `${callout.callName || "Call-out"} — ${title}`,
+      });
+    });
+  });
+  return targets;
+}
+
+function getLegacyTargetLabel(targetId) {
+  const block = state.blocks.find((item) => item.id === targetId);
+  if (block) {
+    return `Legacy block — ${block.title || "Untitled"}`;
+  }
+  return `Legacy target — ${targetId}`;
+}
+
 function createBlankCall(groupId) {
   return {
     id: createId("callout"),
@@ -2480,6 +2479,7 @@ function createBlankCall(groupId) {
     responseExpected: "",
     notes: "",
     importantNote: "",
+    videos: [],
   };
 }
 
@@ -2727,13 +2727,7 @@ function buildViewerBlock(block, sourceState) {
       <section class="panel" id="${block.id}" data-title="${escapeHtml(block.title || "Flows")}">
         <div class="panel-header">
           <h2>${escapeHtml(block.title)}</h2>
-          <div class="flow-legend">
-            <span><strong>Legend:</strong></span>
-            <span class="flow-arrow">→</span>
-            <span>${escapeHtml(legend.arrowALabel || "Arrow A")} — ${escapeHtml(legend.arrowADesc || "")}</span>
-            <span class="flow-arrow arrow-time">⏱→</span>
-            <span>${escapeHtml(legend.arrowBLabel || "Arrow B")} — ${escapeHtml(legend.arrowBDesc || "")}</span>
-          </div>
+          ${block.contextText ? `<div class="block-context">${escapeHtml(block.contextText)}</div>` : ""}
         </div>
         <div class="panel-body flow-grid">
           ${block.flows
@@ -2745,9 +2739,9 @@ function buildViewerBlock(block, sourceState) {
                 .map(
                   (row) => `
                 <div class="flow-row-block">
-                  ${row.rowTitle || row.rowExample ? `<div class="flow-row-meta">
+                  ${row.rowTitle || row.rowContext ? `<div class="flow-row-meta">
                   ${row.rowTitle ? `<div class="flow-row-title">${escapeHtml(row.rowTitle)}</div>` : ""}
-                  ${row.rowExample ? `<div class="flow-row-example">${escapeHtml(row.rowExample)}</div>` : ""}
+                  ${row.rowContext ? `<div class="flow-row-example">${escapeHtml(row.rowContext)}</div>` : ""}
                   </div>` : ""}
                   <div class="flow-row">
                   ${row.elements
@@ -2756,13 +2750,14 @@ function buildViewerBlock(block, sourceState) {
                         const roleClass =
                           element.role === "shotCaller" ? "role-shot" : element.role === "enemyTarget" ? "role-enemy" : "role-yourself";
                         const label = sourceState.roleLabels?.[element.role] || "Role";
+                        const inlineStyles = getNodeStyles(element);
                         const next = row.elements[index + 1];
                         const autoArrow =
                           next && next.type === "node" ? '<span class="flow-arrow">→</span>' : "";
                         return `
                           <div class="flow-node-wrap">
                             <div class="flow-role-label">${escapeHtml(label)}</div>
-                            <span class="flow-node ${roleClass}">${escapeHtml(element.text)}</span>
+                            <span class="flow-node ${roleClass}"${inlineStyles ? ` style="${inlineStyles}"` : ""}>${escapeHtml(element.text)}</span>
                           </div>
                         ${autoArrow}`;
                       }
@@ -2800,6 +2795,7 @@ function buildViewerBlock(block, sourceState) {
     const groupCallouts = sourceState.callouts.filter((callout) => callout.groupId === block.id);
     const cards = groupCallouts
       .map((callout) => {
+        const calloutVideos = buildInlineVideosHtml(callout, { panelPadding: false, inCallout: true });
         return `
           <div class="callout-card">
             <div class="callout-header">
@@ -2809,14 +2805,14 @@ function buildViewerBlock(block, sourceState) {
               </div>
             </div>
             <div class="callout-body">
-              ${viewerField("Call name", callout.callName, "span-two")}
               ${viewerField("Context", callout.context, "half")}
               ${viewerList("When to use", callout.whenToUse, "half")}
               ${viewerField("Meaning", callout.meaning, "half")}
               ${viewerField("Category", block.title, "half")}
-              ${viewerField("Response expected", callout.responseExpected, "span-two")}
-              ${viewerField("Notes", callout.notes, "span-two")}
+              ${viewerField("Expected Outcome", callout.responseExpected, "span-two")}
               ${callout.importantNote ? `<div class="callout-note-box span-two">${escapeHtml(callout.importantNote)}</div>` : ""}
+              ${calloutVideos ? `<div class="span-two">${calloutVideos}</div>` : ""}
+              ${viewerField("Notes", callout.notes, "span-two")}
             </div>
           </div>
         `;
@@ -2826,7 +2822,10 @@ function buildViewerBlock(block, sourceState) {
     return `
       <section class="category-section callout-group-card" id="${block.id}" data-title="${escapeHtml(block.title || "Callouts")}">
         <div class="category-header">
-          <h2>${escapeHtml(block.title)}</h2>
+          <div class="block-title-wrap">
+            <h2>${escapeHtml(block.title)}</h2>
+            ${block.contextText ? `<span class="block-context">${escapeHtml(block.contextText)}</span>` : ""}
+          </div>
         </div>
         ${cards || '<div class="empty-state">No call-outs in this category yet.</div>'}
         ${buildBlockVideosHtml(block, { panelPadding: false })}
@@ -2845,20 +2844,6 @@ function buildViewerBlock(block, sourceState) {
     `;
   }
 
-  if (block.type === "youtube") {
-    const embedUrl = getYouTubeEmbedUrl(block.url || "");
-    return `
-      <section class="panel" id="${block.id}">
-        <div class="panel-header">
-          <h2>${escapeHtml(block.title || "YouTube")}</h2>
-        </div>
-        <div class="panel-body">
-          ${embedUrl ? `<iframe class="youtube-frame" src="${escapeHtml(embedUrl)}" allowfullscreen></iframe>` : "<p class=\"empty-state\">Add a YouTube URL in admin mode.</p>"}
-        </div>
-      </section>
-    `;
-  }
-
   return "";
 }
 
@@ -2872,30 +2857,37 @@ function buildParagraphs(value) {
 }
 
 function buildBlockVideosHtml(block, options = {}) {
-  const videos = block.videos || [];
+  return buildInlineVideosHtml(block, options);
+}
+
+function buildInlineVideosHtml(target, options = {}) {
+  const videos = target.videos || [];
   const panelClass = options.panelPadding === false ? "" : " panel-body";
+  const contextClass = options.inCallout ? " callout-videos" : "";
   if (!videos.length && !options.showEmpty) {
     return "";
   }
   if (!videos.length && options.showEmpty) {
-    return `<div class="block-videos${panelClass}"><div class="empty-state">No video added yet.</div></div>`;
+    return `<div class="block-videos${panelClass}${contextClass}"><div class="empty-state">No video added yet.</div></div>`;
   }
   const gridClass = videos.length === 1 ? "video-grid single" : "video-grid";
   const items = videos
     .map((video) => {
+      const title = video.title ? `<div class="video-title">${escapeHtml(video.title)}</div>` : "";
+      const anchorId = getVideoAnchorId(video);
       if (video.type === "youtube") {
         const embedUrl = getYouTubeEmbedUrl(video.src || "");
         return embedUrl
-          ? `<div class="video-card"><iframe class="youtube-frame" src="${escapeHtml(embedUrl)}" allowfullscreen></iframe></div>`
-          : `<div class="video-card"><div class="empty-state">Invalid YouTube link.</div></div>`;
+          ? `<div class="video-card" id="${escapeHtml(anchorId)}">${title}<iframe class="youtube-frame" src="${escapeHtml(embedUrl)}" allowfullscreen></iframe></div>`
+          : `<div class="video-card" id="${escapeHtml(anchorId)}">${title}<div class="empty-state">Invalid YouTube link.</div></div>`;
       }
       if (video.type === "local") {
-        return `<div class="video-card"><video class="local-video" src="${escapeHtml(video.src)}" controls></video></div>`;
+        return `<div class="video-card" id="${escapeHtml(anchorId)}">${title}<video class="local-video" src="${escapeHtml(video.src)}" controls></video></div>`;
       }
       return "";
     })
     .join("");
-  return `<div class="block-videos${panelClass}"><div class="${gridClass}">${items}</div></div>`;
+  return `<div class="block-videos${panelClass}${contextClass}"><div class="${gridClass}">${items}</div></div>`;
 }
 
 function getYouTubeEmbedUrl(url) {
@@ -2908,6 +2900,35 @@ function getYouTubeEmbedUrl(url) {
   const embedMatch = trimmed.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
   const id = (shortMatch && shortMatch[1]) || (longMatch && longMatch[1]) || (embedMatch && embedMatch[1]);
   return id ? `https://www.youtube.com/embed/${id}` : "";
+}
+
+function getRoleDefaultColor(role) {
+  if (role === "shotCaller") {
+    return "#9e62ff";
+  }
+  if (role === "enemyTarget") {
+    return "#ff6b6b";
+  }
+  return "#4cc3ff";
+}
+
+function hexToRgba(hex, alpha) {
+  const value = hex.replace("#", "");
+  if (value.length !== 6) {
+    return hex;
+  }
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getNodeStyles(element) {
+  if (!element || !element.color) {
+    return "";
+  }
+  const color = element.color;
+  return `border-color: ${color}; background-color: ${hexToRgba(color, 0.18)};`;
 }
 
 function viewerField(label, value, className = "") {
@@ -2993,7 +3014,7 @@ function showAddBlockMenu() {
       type: "flows",
       title: "Flow Diagrams",
       videos: [],
-      legend: deepClone(DEFAULT_STATE.blocks.find((item) => item.type === "flows").legend),
+      contextText: "",
       flows: [
         {
           id: createId("flow"),
@@ -3004,8 +3025,8 @@ function showAddBlockMenu() {
             {
               id: createId("flow-row"),
               rowTitle: "",
-              rowExample: "",
-              elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false }],
+              rowContext: "",
+              elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false, color: "" }],
             },
           ],
         },
@@ -3020,6 +3041,7 @@ function showAddBlockMenu() {
       id: newId,
       type: "calloutGroup",
       title: "New callout group",
+      contextText: "",
       videos: [],
     });
   }
@@ -3047,10 +3069,6 @@ adminToggle.addEventListener("click", () => {
 
 addBlockBtn.addEventListener("click", () => {
   showAddBlockMenu();
-});
-
-window.addEventListener("resize", () => {
-  updateScrollOffset();
 });
 
 window.addEventListener("resize", () => {
