@@ -3,6 +3,7 @@
 const STORAGE_KEY = "scscp_state";
 const ADMIN_KEY = "scscp_admin";
 const NAME_EDIT_KEY = "scscp_name_edit";
+const THEME_KEY = "scscp_theme";
 const ROLE_KEYS = ["shotCaller", "yourself", "enemyTarget"];
 
 const DEFAULT_STATE = {
@@ -13,6 +14,15 @@ const DEFAULT_STATE = {
     intro: "Doctrine-grade phrasing for tight, unambiguous team coordination.",
     logoSrc: "",
     logoAlt: "Header logo",
+    backgroundSrc: "",
+    socialIcons: [
+      { src: "", url: "" },
+      { src: "", url: "" },
+      { src: "", url: "" },
+    ],
+  },
+  ui: {
+    theme: "default",
   },
   roleLabels: {
     shotCaller: "Shot caller",
@@ -27,7 +37,7 @@ const DEFAULT_STATE = {
     {
       id: "rules-block",
       type: "rules",
-      title: "Rules of Use",
+      title: "Information Box",
       sections: [
         {
           id: "rules-core",
@@ -50,7 +60,7 @@ const DEFAULT_STATE = {
     {
       id: "flows-block",
       type: "flows",
-      title: "Flow Diagrams",
+      title: "Example Box",
       contextText: "",
       flows: [
         {
@@ -143,11 +153,9 @@ const DEFAULT_STATE = {
     { id: "group-geometry", type: "calloutGroup", title: "TEAM GEOMETRY" },
     { id: "group-attachment", type: "calloutGroup", title: "ATTACHMENT" },
     { id: "group-awareness", type: "calloutGroup", title: "TARGET AWARENESS" },
-    { id: "group-distance", type: "calloutGroup", title: "DISTANCE SCALE" },
     { id: "group-effectiveness", type: "calloutGroup", title: "ENGAGEMENT EFFECTIVENESS" },
     { id: "group-target-status", type: "calloutGroup", title: "TARGET STATUS (SHARED TRUTH)" },
     { id: "group-kill", type: "calloutGroup", title: "KILL / DEATH" },
-    { id: "admin-tools", type: "adminTools", title: "Admin Tools" },
   ],
   callouts: [
     {
@@ -351,46 +359,6 @@ const DEFAULT_STATE = {
       notes: "Shared truth.",
     },
     {
-      id: "call-five-clicks",
-      callName: "Five clicks",
-      groupId: "group-distance",
-      context: "Distance scale reference.",
-      meaning: "Approx. five clicks.",
-      whenToUse: ["Distance call"],
-      responseExpected: "Adjust geometry if needed.",
-      notes: "Consistent scale reference.",
-    },
-    {
-      id: "call-three-clicks",
-      callName: "Three clicks",
-      groupId: "group-distance",
-      context: "Distance scale reference.",
-      meaning: "Approx. three clicks.",
-      whenToUse: ["Distance call"],
-      responseExpected: "Adjust geometry if needed.",
-      notes: "Consistent scale reference.",
-    },
-    {
-      id: "call-two-clicks",
-      callName: "Two clicks",
-      groupId: "group-distance",
-      context: "Distance scale reference.",
-      meaning: "Approx. two clicks.",
-      whenToUse: ["Distance call"],
-      responseExpected: "Adjust geometry if needed.",
-      notes: "Consistent scale reference.",
-    },
-    {
-      id: "call-one-click",
-      callName: "One click",
-      groupId: "group-distance",
-      context: "Distance scale reference.",
-      meaning: "Approx. one click.",
-      whenToUse: ["Distance call"],
-      responseExpected: "Adjust geometry if needed.",
-      notes: "Consistent scale reference.",
-    },
-    {
       id: "call-merging",
       callName: "Merging",
       groupId: "group-effectiveness",
@@ -503,9 +471,93 @@ const DEFAULT_STATE = {
   ],
 };
 
+const THEMES = {
+  default: {
+    label: "Default",
+    colors: {
+      "--bg": "#0b1018",
+      "--panel": "#121a26",
+      "--panel-elev": "#182233",
+      "--line": "#24324a",
+      "--text": "#e3ecf5",
+      "--muted": "#9bb0c9",
+      "--accent": "#4cc3ff",
+      "--accent-strong": "#7ad7ff",
+      "--danger": "#ff6b6b",
+      "--success": "#6bffb3",
+      "--warning": "#ffce6b",
+    },
+  },
+  blue: {
+    label: "Blue",
+    colors: {
+      "--bg": "#0a0f18",
+      "--panel": "#121a2b",
+      "--panel-elev": "#172338",
+      "--line": "#223450",
+      "--text": "#e5effc",
+      "--muted": "#9bb0d6",
+      "--accent": "#6aa8ff",
+      "--accent-strong": "#8cc0ff",
+      "--danger": "#ff7d7d",
+      "--success": "#6bffcf",
+      "--warning": "#ffd27d",
+    },
+  },
+  green: {
+    label: "Green",
+    colors: {
+      "--bg": "#0b1512",
+      "--panel": "#111f1a",
+      "--panel-elev": "#162820",
+      "--line": "#233a30",
+      "--text": "#e1f2ea",
+      "--muted": "#9bbdb0",
+      "--accent": "#6bffa6",
+      "--accent-strong": "#88ffbc",
+      "--danger": "#ff7b7b",
+      "--success": "#7bffb3",
+      "--warning": "#ffd67b",
+    },
+  },
+  amber: {
+    label: "Amber",
+    colors: {
+      "--bg": "#141008",
+      "--panel": "#1e180f",
+      "--panel-elev": "#2a2115",
+      "--line": "#3a2d1b",
+      "--text": "#f3eadc",
+      "--muted": "#c2b39a",
+      "--accent": "#ffcf6b",
+      "--accent-strong": "#ffe099",
+      "--danger": "#ff7b7b",
+      "--success": "#7bffc3",
+      "--warning": "#ffd27d",
+    },
+  },
+  violet: {
+    label: "Violet",
+    colors: {
+      "--bg": "#100b18",
+      "--panel": "#18122b",
+      "--panel-elev": "#221a38",
+      "--line": "#33234d",
+      "--text": "#efe7ff",
+      "--muted": "#b7a9d8",
+      "--accent": "#b48cff",
+      "--accent-strong": "#caa8ff",
+      "--danger": "#ff7d7d",
+      "--success": "#7bffd5",
+      "--warning": "#ffd27d",
+    },
+  },
+};
+
 let state = loadState();
 let adminMode = loadAdmin();
 let allowNameEdit = loadNameEdit();
+let activeTheme = loadTheme();
 let expandedIds = new Set();
 let editingBlocks = new Set();
 
@@ -516,6 +568,10 @@ const blocksContainer = document.getElementById("blocksContainer");
 const adminToggle = document.getElementById("adminToggle");
 const adminStatus = document.getElementById("adminStatus");
 const addBlockBtn = document.getElementById("addBlock");
+const themeSelect = document.getElementById("themeSelect");
+const headerAdminPanel = document.getElementById("headerAdminPanel");
+const headerSocials = document.getElementById("headerSocials");
+const siteHeader = document.querySelector(".site-header");
 
 function createId(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -524,6 +580,9 @@ function createId(prefix) {
 function loadState() {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) {
+    if (window.__EXPORTED_STATE__ && typeof window.__EXPORTED_STATE__ === "object") {
+      return normalizeState(deepClone(window.__EXPORTED_STATE__));
+    }
     return normalizeState(deepClone(DEFAULT_STATE));
   }
   try {
@@ -580,6 +639,25 @@ function normalizeState(source) {
   if (typeof nextState.header.logoAlt !== "string") {
     nextState.header.logoAlt = "Header logo";
   }
+  if (typeof nextState.header.backgroundSrc !== "string") {
+    nextState.header.backgroundSrc = "";
+  }
+  if (!Array.isArray(nextState.header.socialIcons)) {
+    nextState.header.socialIcons = deepClone(DEFAULT_STATE.header.socialIcons);
+  } else {
+    nextState.header.socialIcons = nextState.header.socialIcons.map((icon, index) => ({
+      src: typeof icon?.src === "string" ? icon.src : "",
+      url: typeof icon?.url === "string" ? icon.url : "",
+    }));
+    while (nextState.header.socialIcons.length < 3) {
+      nextState.header.socialIcons.push({ src: "", url: "" });
+    }
+    nextState.header.socialIcons = nextState.header.socialIcons.slice(0, 3);
+  }
+  nextState.ui = {
+    ...deepClone(DEFAULT_STATE.ui),
+    ...(nextState.ui || {}),
+  };
   nextState.roleLabels = {
     ...deepClone(DEFAULT_STATE.roleLabels),
     ...(nextState.roleLabels || {}),
@@ -602,6 +680,9 @@ function normalizeState(source) {
   });
 
   nextState.blocks = (nextState.blocks || []).map((block) => {
+    if (block.type === "adminTools") {
+      return null;
+    }
     if (block.type === "youtube") {
       const migratedBlock = {
         id: block.id,
@@ -620,11 +701,15 @@ function normalizeState(source) {
       src: video.src,
     }));
     if (block.type === "rules") {
+      if (block.title === "Rules of Use") {
+        block.title = "Information Box";
+      }
       block.sections = (block.sections || []).map((section) => {
         if (Array.isArray(section.items) && !section.body) {
           section.body = section.items.join("\n");
         }
         return {
+          title: section.title || "New Information Sub-Box",
           subtitle: "",
           note: "",
           ...section,
@@ -635,12 +720,21 @@ function normalizeState(source) {
       });
     }
     if (block.type === "flows") {
+      if (block.title === "Flow Diagrams") {
+        block.title = "Example Box";
+      }
       if (typeof block.contextText !== "string") {
         block.contextText = "";
       }
       block.flows = (block.flows || []).map((flow) => {
         flow.exampleLabel = flow.exampleLabel || "Example";
         flow.exampleTargetId = flow.exampleTargetId || "";
+        flow.videos = (flow.videos || []).map((video) => ({
+          id: video.id || createId("video"),
+          title: video.title || "",
+          type: video.type,
+          src: video.src,
+        }));
         flow.rows = (flow.rows || []).map((row) => {
           row.rowTitle = row.rowTitle || "";
           row.rowContext = row.rowContext || row.rowExample || "";
@@ -666,6 +760,11 @@ function normalizeState(source) {
         });
         return flow;
       });
+      if ((block.videos || []).length && block.flows.length) {
+        const [firstFlow] = block.flows;
+        firstFlow.videos = [...(block.videos || []), ...(firstFlow.videos || [])];
+        block.videos = [];
+      }
     }
     if (block.type === "calloutGroup") {
       if (typeof block.contextText !== "string") {
@@ -673,7 +772,7 @@ function normalizeState(source) {
       }
     }
     return block;
-  });
+  }).filter(Boolean);
 
   return nextState;
 }
@@ -686,8 +785,45 @@ function loadNameEdit() {
   return localStorage.getItem(NAME_EDIT_KEY) === "true";
 }
 
+function loadTheme() {
+  return localStorage.getItem(THEME_KEY) || state?.ui?.theme || "default";
+}
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function applyTheme(themeName) {
+  const theme = THEMES[themeName] || THEMES.default;
+  Object.entries(theme.colors).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(key, value);
+  });
+}
+
+function setTheme(themeName) {
+  activeTheme = THEMES[themeName] ? themeName : "default";
+  localStorage.setItem(THEME_KEY, activeTheme);
+  if (state.ui) {
+    state.ui.theme = activeTheme;
+  }
+  applyTheme(activeTheme);
+}
+
+function renderThemeSelector() {
+  if (!themeSelect) {
+    return;
+  }
+  themeSelect.innerHTML = "";
+  Object.entries(THEMES).forEach(([key, theme]) => {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = theme.label;
+    option.selected = key === activeTheme;
+    themeSelect.appendChild(option);
+  });
+  themeSelect.onchange = () => {
+    setTheme(themeSelect.value);
+  };
 }
 
 function deepClone(value) {
@@ -747,6 +883,15 @@ function getCalloutGroups() {
 
 function renderHeader() {
   headerContent.innerHTML = "";
+  if (siteHeader) {
+    if (state.header.backgroundSrc) {
+      siteHeader.classList.add("has-bg");
+      siteHeader.style.setProperty("--header-bg", `url('${state.header.backgroundSrc}')`);
+    } else {
+      siteHeader.classList.remove("has-bg");
+      siteHeader.style.removeProperty("--header-bg");
+    }
+  }
   const brand = document.createElement("div");
   brand.className = "header-brand";
 
@@ -855,6 +1000,388 @@ function renderHeader() {
 
   brand.appendChild(wrapper);
   headerContent.appendChild(brand);
+
+  renderHeaderAdminPanel();
+  renderHeaderSocials();
+}
+
+function renderHeaderAdminPanel() {
+  if (!headerAdminPanel) {
+    return;
+  }
+  headerAdminPanel.innerHTML = "";
+  if (!adminMode) {
+    return;
+  }
+
+  const headerSection = document.createElement("div");
+  headerSection.className = "admin-section";
+  const headerTitle = document.createElement("div");
+  headerTitle.className = "admin-section-title";
+  headerTitle.textContent = "Header media";
+  headerSection.appendChild(headerTitle);
+
+  const bgRow = document.createElement("div");
+  bgRow.className = "admin-row";
+  const bgLabel = document.createElement("label");
+  bgLabel.className = "eyebrow";
+  bgLabel.textContent = "Header background";
+  const bgUploadLabel = document.createElement("label");
+  bgUploadLabel.className = "btn btn-outline";
+  bgUploadLabel.textContent = "Upload background";
+  bgUploadLabel.setAttribute("for", "headerBgUpload");
+  const bgUploadInput = document.createElement("input");
+  bgUploadInput.type = "file";
+  bgUploadInput.id = "headerBgUpload";
+  bgUploadInput.accept = "image/*";
+  bgUploadInput.addEventListener("change", () => {
+    const file = bgUploadInput.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.header.backgroundSrc = reader.result;
+        render();
+      };
+      reader.readAsDataURL(file);
+    }
+    bgUploadInput.value = "";
+  });
+  const bgClearBtn = document.createElement("button");
+  bgClearBtn.className = "btn btn-ghost";
+  bgClearBtn.type = "button";
+  bgClearBtn.textContent = "Remove";
+  bgClearBtn.addEventListener("click", () => {
+    state.header.backgroundSrc = "";
+    render();
+  });
+  const bgSize = document.createElement("span");
+  bgSize.className = "admin-note";
+  bgSize.textContent = `Recommended size: ${getHeaderSizeText()}`;
+  bgRow.appendChild(bgLabel);
+  bgRow.appendChild(bgUploadLabel);
+  bgRow.appendChild(bgUploadInput);
+  bgRow.appendChild(bgClearBtn);
+  bgRow.appendChild(bgSize);
+  headerSection.appendChild(bgRow);
+
+  const socialsRow = document.createElement("div");
+  socialsRow.className = "admin-row";
+  const socialsTitle = document.createElement("span");
+  socialsTitle.className = "admin-note";
+  socialsTitle.textContent = "Header mini-icons";
+  socialsRow.appendChild(socialsTitle);
+  state.header.socialIcons.forEach((icon, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "admin-row";
+    const uploadLabel = document.createElement("label");
+    uploadLabel.className = "btn btn-outline";
+    uploadLabel.textContent = `Upload icon ${index + 1}`;
+    const uploadInput = document.createElement("input");
+    uploadInput.type = "file";
+    uploadInput.accept = "image/*";
+    uploadInput.id = `headerIconUpload-${index}`;
+    uploadLabel.setAttribute("for", uploadInput.id);
+    uploadInput.addEventListener("change", () => {
+      const file = uploadInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.header.socialIcons[index].src = reader.result;
+          render();
+        };
+        reader.readAsDataURL(file);
+      }
+      uploadInput.value = "";
+    });
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.className = "panel-title-input";
+    urlInput.placeholder = "https://";
+    urlInput.value = icon.url || "";
+    urlInput.addEventListener("input", () => {
+      state.header.socialIcons[index].url = urlInput.value;
+    });
+    const clearBtn = document.createElement("button");
+    clearBtn.className = "btn btn-ghost";
+    clearBtn.type = "button";
+    clearBtn.textContent = "Clear";
+    clearBtn.addEventListener("click", () => {
+      state.header.socialIcons[index] = { src: "", url: "" };
+      render();
+    });
+    wrapper.appendChild(uploadLabel);
+    wrapper.appendChild(uploadInput);
+    wrapper.appendChild(urlInput);
+    wrapper.appendChild(clearBtn);
+    socialsRow.appendChild(wrapper);
+  });
+  headerSection.appendChild(socialsRow);
+
+  const lockSection = document.createElement("div");
+  lockSection.className = "admin-section";
+  const lockTitle = document.createElement("div");
+  lockTitle.className = "admin-section-title";
+  lockTitle.textContent = "Editing settings";
+  lockSection.appendChild(lockTitle);
+
+  const toggleRow = document.createElement("div");
+  toggleRow.className = "admin-row";
+  const label = document.createElement("label");
+  label.className = "toggle";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = allowNameEdit;
+  checkbox.addEventListener("change", () => {
+    allowNameEdit = checkbox.checked;
+    localStorage.setItem(NAME_EDIT_KEY, allowNameEdit ? "true" : "false");
+    render();
+  });
+  const span = document.createElement("span");
+  span.textContent = "Enable element name editing (safety lock)";
+  label.appendChild(checkbox);
+  label.appendChild(span);
+  toggleRow.appendChild(label);
+  lockSection.appendChild(toggleRow);
+
+  const roleRow = document.createElement("div");
+  roleRow.className = "admin-row";
+  const roleTitle = document.createElement("span");
+  roleTitle.className = "admin-note";
+  roleTitle.textContent = "Role labels";
+  roleRow.appendChild(roleTitle);
+  ROLE_KEYS.forEach((role) => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = state.roleLabels[role] || "";
+    input.placeholder = role;
+    input.className = "panel-title-input";
+    input.addEventListener("input", () => {
+      state.roleLabels[role] = input.value;
+      render();
+    });
+    roleRow.appendChild(input);
+  });
+  lockSection.appendChild(roleRow);
+
+  const actionSection = document.createElement("div");
+  actionSection.className = "admin-section";
+  const actionTitle = document.createElement("div");
+  actionTitle.className = "admin-section-title";
+  actionTitle.textContent = "Project actions";
+  actionSection.appendChild(actionTitle);
+
+  const actionRow = document.createElement("div");
+  actionRow.className = "admin-row";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "btn";
+  saveBtn.type = "button";
+  saveBtn.textContent = "Save";
+  saveBtn.addEventListener("click", () => {
+    saveState();
+  });
+
+  const resetBtn = document.createElement("button");
+  resetBtn.className = "btn btn-outline";
+  resetBtn.type = "button";
+  resetBtn.textContent = "Reset to default";
+  resetBtn.addEventListener("click", () => {
+    if (confirm("Reset all blocks, elements, and layout to default?")) {
+      state = deepClone(DEFAULT_STATE);
+      saveState();
+      render();
+    }
+  });
+
+  const exportBtn = document.createElement("button");
+  exportBtn.className = "btn btn-outline";
+  exportBtn.type = "button";
+  exportBtn.textContent = "Export JSON";
+  exportBtn.addEventListener("click", () => {
+    handleExportJson();
+  });
+
+  const exportHtmlBtn = document.createElement("button");
+  exportHtmlBtn.className = "btn btn-outline";
+  exportHtmlBtn.type = "button";
+  exportHtmlBtn.textContent = "Export final (viewer-only HTML)";
+  exportHtmlBtn.addEventListener("click", () => {
+    handleExportHtml();
+  });
+
+  const exportEditorBtn = document.createElement("button");
+  exportEditorBtn.className = "btn btn-outline";
+  exportEditorBtn.type = "button";
+  exportEditorBtn.textContent = "Export editor (single HTML)";
+  exportEditorBtn.addEventListener("click", () => {
+    handleExportEditorHtml();
+  });
+
+  const exportZipBtn = document.createElement("button");
+  exportZipBtn.className = "btn btn-outline";
+  exportZipBtn.type = "button";
+  exportZipBtn.textContent = "Export project ZIP";
+  exportZipBtn.addEventListener("click", () => {
+    handleExportZip();
+  });
+
+  const importLabel = document.createElement("label");
+  importLabel.className = "btn btn-outline";
+  importLabel.textContent = "Import JSON";
+  importLabel.setAttribute("for", "importData");
+
+  const importInput = document.createElement("input");
+  importInput.id = "importData";
+  importInput.type = "file";
+  importInput.accept = "application/json";
+  importInput.addEventListener("change", () => {
+    const file = importInput.files[0];
+    if (file) {
+      handleImport(file);
+    }
+    importInput.value = "";
+  });
+
+  actionRow.appendChild(saveBtn);
+  actionRow.appendChild(resetBtn);
+  actionRow.appendChild(exportBtn);
+  actionRow.appendChild(exportHtmlBtn);
+  actionRow.appendChild(exportEditorBtn);
+  actionRow.appendChild(exportZipBtn);
+  actionRow.appendChild(importLabel);
+  actionRow.appendChild(importInput);
+  actionSection.appendChild(actionRow);
+
+  const blockRow = document.createElement("div");
+  blockRow.className = "admin-row";
+  const addInfo = document.createElement("button");
+  addInfo.className = "btn btn-outline";
+  addInfo.type = "button";
+  addInfo.textContent = "Add Information Box";
+  addInfo.addEventListener("click", () => {
+    state.blocks.push({
+      id: createId("rules"),
+      type: "rules",
+      title: "Information Box",
+      videos: [],
+      sections: [{ id: createId("rules-section"), title: "New Information Sub-Box", subtitle: "", body: "", note: "" }],
+    });
+    render();
+  });
+  const addExample = document.createElement("button");
+  addExample.className = "btn btn-outline";
+  addExample.type = "button";
+  addExample.textContent = "Add Example Box";
+  addExample.addEventListener("click", () => {
+    state.blocks.push({
+      id: createId("flows"),
+      type: "flows",
+      title: "Example Box",
+      videos: [],
+      contextText: "",
+      flows: [
+        {
+          id: createId("flow"),
+          title: "New Example Sub-Box",
+          exampleLabel: "Example",
+          exampleTargetId: "",
+          videos: [],
+          rows: [
+            {
+              id: createId("flow-row"),
+              rowTitle: "",
+              rowContext: "",
+              elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false, color: "" }],
+            },
+          ],
+        },
+      ],
+    });
+    render();
+  });
+  const addStudy = document.createElement("button");
+  addStudy.className = "btn btn-outline";
+  addStudy.type = "button";
+  addStudy.textContent = "Add Study Box";
+  addStudy.addEventListener("click", () => {
+    const newId = createId("group");
+    const insertIndex = state.blocks.length;
+    state.blocks.splice(insertIndex, 0, {
+      id: newId,
+      type: "calloutGroup",
+      title: "New Study Box",
+      videos: [],
+    });
+    render();
+  });
+
+  const addVideo = document.createElement("button");
+  addVideo.className = "btn btn-outline";
+  addVideo.type = "button";
+  addVideo.textContent = "Add video block";
+  addVideo.addEventListener("click", () => {
+    state.blocks.push({
+      id: createId("video"),
+      type: "video",
+      title: "Video",
+      videos: [],
+    });
+    render();
+  });
+
+  blockRow.appendChild(addInfo);
+  blockRow.appendChild(addExample);
+  blockRow.appendChild(addStudy);
+  blockRow.appendChild(addVideo);
+  actionSection.appendChild(blockRow);
+
+  const note = document.createElement("p");
+  note.className = "admin-note";
+  note.textContent = "Save writes to localStorage on this device. Export/Import lets you share edits as JSON.";
+  actionSection.appendChild(note);
+
+  headerAdminPanel.appendChild(headerSection);
+  headerAdminPanel.appendChild(lockSection);
+  headerAdminPanel.appendChild(actionSection);
+}
+
+function renderHeaderSocials() {
+  if (!headerSocials) {
+    return;
+  }
+  headerSocials.innerHTML = "";
+  state.header.socialIcons.forEach((icon) => {
+    if (!icon.src) {
+      return;
+    }
+    const img = document.createElement("img");
+    img.src = icon.src;
+    img.alt = "Social icon";
+    if (icon.url) {
+      const link = document.createElement("a");
+      link.href = icon.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.appendChild(img);
+      headerSocials.appendChild(link);
+    } else {
+      const wrap = document.createElement("span");
+      wrap.appendChild(img);
+      headerSocials.appendChild(wrap);
+    }
+  });
+}
+
+function getHeaderSizeText() {
+  if (!siteHeader) {
+    return "1920 px x 480 px";
+  }
+  const width = Math.round(siteHeader.offsetWidth);
+  const height = Math.round(siteHeader.offsetHeight);
+  if (!width || !height) {
+    return "1920 px x 480 px";
+  }
+  return `${width} px x ${height} px`;
 }
 
 function createInlineInput(kind, value, onChange) {
@@ -942,17 +1469,16 @@ function renderFooter() {
 
 function renderNav() {
   categoryNav.innerHTML = "";
-  state.blocks
-    .filter((block) => block.type !== "adminTools")
-    .forEach((block) => {
-      const link = document.createElement("a");
-      link.href = `#${block.id}`;
-      link.textContent = block.title || "Untitled block";
-      categoryNav.appendChild(link);
-    });
+  state.blocks.forEach((block) => {
+    const link = document.createElement("a");
+    link.href = `#${block.id}`;
+    link.textContent = block.title || "Untitled block";
+    categoryNav.appendChild(link);
+  });
 }
 
 function render() {
+  renderThemeSelector();
   renderHeader();
   renderFooter();
   renderNav();
@@ -975,11 +1501,6 @@ function render() {
       blocksContainer.appendChild(renderVideoBlock(block, index));
       return;
     }
-    if (block.type === "adminTools") {
-      if (adminMode) {
-        blocksContainer.appendChild(renderAdminToolsBlock(block, index));
-      }
-    }
   });
 
   updateScrollOffset();
@@ -989,7 +1510,7 @@ function renderRulesBlock(block, index) {
   const section = document.createElement("section");
   section.className = "panel";
   section.id = block.id;
-  section.dataset.title = block.title || "Rules";
+  section.dataset.title = block.title || "Information Box";
   const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
@@ -1094,7 +1615,7 @@ function renderRulesBlock(block, index) {
       const removeSection = document.createElement("button");
       removeSection.className = "btn btn-danger";
       removeSection.type = "button";
-      removeSection.textContent = "Delete section";
+      removeSection.textContent = "Delete Information Sub-Box";
       removeSection.addEventListener("click", () => {
         block.sections.splice(sectionIndex, 1);
         render();
@@ -1110,11 +1631,11 @@ function renderRulesBlock(block, index) {
     const addSection = document.createElement("button");
     addSection.className = "btn btn-outline";
     addSection.type = "button";
-    addSection.textContent = "Add rule section";
+    addSection.textContent = "Add Sub-Box";
     addSection.addEventListener("click", () => {
       block.sections.push({
         id: createId("rules-section"),
-        title: "New section",
+        title: "New Information Sub-Box",
         subtitle: "",
         body: "",
         note: "",
@@ -1136,7 +1657,7 @@ function renderFlowsBlock(block, index) {
   const section = document.createElement("section");
   section.className = "panel";
   section.id = block.id;
-  section.dataset.title = block.title || "Flows";
+  section.dataset.title = block.title || "Example Box";
   const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
@@ -1194,7 +1715,7 @@ function renderFlowsBlock(block, index) {
       const addRow = document.createElement("button");
       addRow.className = "btn btn-outline";
       addRow.type = "button";
-      addRow.textContent = "Add row";
+      addRow.textContent = "Add Example Row";
       addRow.addEventListener("click", () => {
         flow.rows.push({
           id: createId("flow-row"),
@@ -1208,13 +1729,32 @@ function renderFlowsBlock(block, index) {
       const removeFlow = document.createElement("button");
       removeFlow.className = "btn btn-danger";
       removeFlow.type = "button";
-      removeFlow.textContent = "Delete flow";
+      removeFlow.textContent = "Delete Example Sub-Box";
       removeFlow.addEventListener("click", () => {
         block.flows.splice(flowIndex, 1);
         render();
       });
 
+      const moveLeft = document.createElement("button");
+      moveLeft.className = "btn btn-ghost";
+      moveLeft.type = "button";
+      moveLeft.textContent = "←";
+      moveLeft.title = "Move sub-box left";
+      moveLeft.addEventListener("click", () => {
+        moveItem(block.flows, flowIndex, -1);
+      });
+      const moveRight = document.createElement("button");
+      moveRight.className = "btn btn-ghost";
+      moveRight.type = "button";
+      moveRight.textContent = "→";
+      moveRight.title = "Move sub-box right";
+      moveRight.addEventListener("click", () => {
+        moveItem(block.flows, flowIndex, 1);
+      });
+      flowActions.classList.add("flow-subbox-actions");
       flowActions.appendChild(addRow);
+      flowActions.appendChild(moveLeft);
+      flowActions.appendChild(moveRight);
       flowActions.appendChild(removeFlow);
       card.appendChild(flowActions);
     }
@@ -1266,6 +1806,17 @@ function renderFlowsBlock(block, index) {
       card.appendChild(exampleRow);
     }
 
+    const flowVideos = renderVideoSection(flow, {
+      panelPadding: false,
+      editable: editing,
+      maxVideos: 1,
+      singleColumn: true,
+      fullWidth: true,
+    });
+    if (flowVideos) {
+      card.appendChild(flowVideos);
+    }
+
     body.appendChild(card);
   });
 
@@ -1273,11 +1824,12 @@ function renderFlowsBlock(block, index) {
     const addFlow = document.createElement("button");
     addFlow.className = "btn btn-outline";
     addFlow.type = "button";
-    addFlow.textContent = "Add flow";
+    addFlow.textContent = "Add Sub-Box";
     addFlow.addEventListener("click", () => {
       block.flows.push({
         id: createId("flow"),
-        title: "New flow",
+        title: "New Example Sub-Box",
+        videos: [],
         rows: [
           {
             id: createId("flow-row"),
@@ -1293,10 +1845,6 @@ function renderFlowsBlock(block, index) {
   }
 
   section.appendChild(body);
-  const videos = renderVideoSection(block, { panelPadding: true, editable: editing });
-  if (videos) {
-    section.appendChild(videos);
-  }
   return section;
 }
 
@@ -1331,7 +1879,7 @@ function renderFlowRow(flow, row, rowIndex, editing) {
       const titleInput = document.createElement("input");
       titleInput.type = "text";
       titleInput.value = row.rowTitle || "";
-      titleInput.placeholder = "Row title";
+      titleInput.placeholder = "Example Row title";
       titleInput.className = "panel-title-input";
       titleInput.addEventListener("input", () => {
         row.rowTitle = titleInput.value;
@@ -1339,7 +1887,7 @@ function renderFlowRow(flow, row, rowIndex, editing) {
       const exampleInput = document.createElement("input");
       exampleInput.type = "text";
       exampleInput.value = row.rowContext || "";
-      exampleInput.placeholder = "Context";
+      exampleInput.placeholder = "Example Row context";
       exampleInput.className = "panel-title-input";
       exampleInput.addEventListener("input", () => {
         row.rowContext = exampleInput.value;
@@ -1419,7 +1967,7 @@ function renderFlowRow(flow, row, rowIndex, editing) {
   const editorPanel = document.createElement("details");
   editorPanel.className = "flow-editor-panel";
   const summary = document.createElement("summary");
-  summary.textContent = "Edit row";
+  summary.textContent = "Edit Example Row";
   editorPanel.appendChild(summary);
   const rowGroup = document.createElement("div");
   rowGroup.className = "flow-editor-row";
@@ -1589,7 +2137,7 @@ function renderFlowRow(flow, row, rowIndex, editing) {
   const removeRow = document.createElement("button");
   removeRow.className = "btn btn-danger";
   removeRow.type = "button";
-  removeRow.textContent = "Delete row";
+  removeRow.textContent = "Delete Example Row";
   removeRow.addEventListener("click", () => {
     flow.rows.splice(rowIndex, 1);
     render();
@@ -1611,7 +2159,7 @@ function renderCalloutGroupBlock(block, index) {
   const section = document.createElement("section");
   section.className = "category-section callout-group-card";
   section.id = block.id;
-  section.dataset.title = block.title || "Callouts";
+  section.dataset.title = block.title || "Study Box";
   const editing = isBlockEditing(block.id);
 
   const header = document.createElement("div");
@@ -1658,7 +2206,7 @@ function renderCalloutGroupBlock(block, index) {
     const addBtn = document.createElement("button");
     addBtn.className = "btn btn-outline";
     addBtn.type = "button";
-    addBtn.textContent = "Add call-out";
+    addBtn.textContent = "Add Element";
     addBtn.addEventListener("click", () => {
       state.callouts.push(createBlankCall(block.id));
       render();
@@ -1675,7 +2223,7 @@ function renderCalloutGroupBlock(block, index) {
   if (!groupCallouts.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No call-outs in this category yet.";
+    empty.textContent = "No elements in this sub-box yet.";
     section.appendChild(empty);
     return section;
   }
@@ -1689,234 +2237,6 @@ function renderCalloutGroupBlock(block, index) {
     section.appendChild(videos);
   }
 
-  return section;
-}
-
-function renderAdminToolsBlock(block, index) {
-  const section = document.createElement("section");
-  section.className = "panel";
-  section.id = block.id;
-  const editing = isBlockEditing(block.id);
-
-  const header = document.createElement("div");
-  header.className = "panel-header";
-  header.appendChild(renderBlockTitle(block, "h2", editing));
-  header.appendChild(renderBlockActions(block, index, editing));
-  section.appendChild(header);
-
-  const body = document.createElement("div");
-  body.className = "panel-body admin-tools";
-  if (!editing) {
-    const note = document.createElement("p");
-    note.className = "admin-note";
-    note.textContent = "Select Edit to manage admin tools, exports, and settings.";
-    body.appendChild(note);
-    section.appendChild(body);
-    return section;
-  }
-
-  const toggleRow = document.createElement("div");
-  toggleRow.className = "admin-row";
-  const label = document.createElement("label");
-  label.className = "toggle";
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = allowNameEdit;
-  checkbox.addEventListener("change", () => {
-    allowNameEdit = checkbox.checked;
-    localStorage.setItem(NAME_EDIT_KEY, allowNameEdit ? "true" : "false");
-    render();
-  });
-  const span = document.createElement("span");
-  span.textContent = "Enable call name editing (safety lock)";
-  label.appendChild(checkbox);
-  label.appendChild(span);
-  toggleRow.appendChild(label);
-  body.appendChild(toggleRow);
-
-  const roleRow = document.createElement("div");
-  roleRow.className = "admin-row";
-  const roleTitle = document.createElement("span");
-  roleTitle.className = "admin-note";
-  roleTitle.textContent = "Role labels";
-  roleRow.appendChild(roleTitle);
-  ROLE_KEYS.forEach((role) => {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = state.roleLabels[role] || "";
-    input.placeholder = role;
-    input.className = "panel-title-input";
-    input.addEventListener("input", () => {
-      state.roleLabels[role] = input.value;
-      render();
-    });
-    roleRow.appendChild(input);
-  });
-  body.appendChild(roleRow);
-
-  const actionRow = document.createElement("div");
-  actionRow.className = "admin-row";
-
-  const saveBtn = document.createElement("button");
-  saveBtn.className = "btn";
-  saveBtn.type = "button";
-  saveBtn.textContent = "Save";
-  saveBtn.addEventListener("click", () => {
-    saveState();
-  });
-
-  const resetBtn = document.createElement("button");
-  resetBtn.className = "btn btn-outline";
-  resetBtn.type = "button";
-  resetBtn.textContent = "Reset to default";
-  resetBtn.addEventListener("click", () => {
-    if (confirm("Reset all blocks, call-outs, and layout to default?")) {
-      state = deepClone(DEFAULT_STATE);
-      saveState();
-      render();
-    }
-  });
-
-  const exportBtn = document.createElement("button");
-  exportBtn.className = "btn btn-outline";
-  exportBtn.type = "button";
-  exportBtn.textContent = "Export JSON";
-  exportBtn.addEventListener("click", () => {
-    handleExportJson();
-  });
-
-  const exportHtmlBtn = document.createElement("button");
-  exportHtmlBtn.className = "btn btn-outline";
-  exportHtmlBtn.type = "button";
-  exportHtmlBtn.textContent = "Export final (viewer-only HTML)";
-  exportHtmlBtn.addEventListener("click", () => {
-    handleExportHtml();
-  });
-
-  const exportEditorBtn = document.createElement("button");
-  exportEditorBtn.className = "btn btn-outline";
-  exportEditorBtn.type = "button";
-  exportEditorBtn.textContent = "Export editor (single HTML)";
-  exportEditorBtn.addEventListener("click", () => {
-    handleExportEditorHtml();
-  });
-
-  const importLabel = document.createElement("label");
-  importLabel.className = "btn btn-outline";
-  importLabel.textContent = "Import JSON";
-  importLabel.setAttribute("for", "importData");
-
-  const importInput = document.createElement("input");
-  importInput.id = "importData";
-  importInput.type = "file";
-  importInput.accept = "application/json";
-  importInput.addEventListener("change", () => {
-    const file = importInput.files[0];
-    if (file) {
-      handleImport(file);
-    }
-    importInput.value = "";
-  });
-
-  actionRow.appendChild(saveBtn);
-  actionRow.appendChild(resetBtn);
-  actionRow.appendChild(exportBtn);
-  actionRow.appendChild(exportHtmlBtn);
-  actionRow.appendChild(exportEditorBtn);
-  actionRow.appendChild(importLabel);
-  actionRow.appendChild(importInput);
-
-  body.appendChild(actionRow);
-
-  const blockRow = document.createElement("div");
-  blockRow.className = "admin-row";
-  const addRules = document.createElement("button");
-  addRules.className = "btn btn-outline";
-  addRules.type = "button";
-  addRules.textContent = "Add rules block";
-  addRules.addEventListener("click", () => {
-    state.blocks.push({
-      id: createId("rules"),
-      type: "rules",
-      title: "Rules of Use",
-      videos: [],
-      sections: [{ id: createId("rules-section"), title: "New section", subtitle: "", body: "", note: "" }],
-    });
-    render();
-  });
-  const addFlows = document.createElement("button");
-  addFlows.className = "btn btn-outline";
-  addFlows.type = "button";
-  addFlows.textContent = "Add flow block";
-  addFlows.addEventListener("click", () => {
-    state.blocks.push({
-      id: createId("flows"),
-      type: "flows",
-      title: "Flow Diagrams",
-      videos: [],
-      contextText: "",
-      flows: [
-        {
-          id: createId("flow"),
-          title: "New flow",
-          exampleLabel: "Example",
-          exampleTargetId: "",
-          rows: [
-            {
-              id: createId("flow-row"),
-              rowTitle: "",
-              rowContext: "",
-              elements: [{ id: createId("el"), type: "node", text: "", role: "yourself", emphasis: false, color: "" }],
-            },
-          ],
-        },
-      ],
-    });
-    render();
-  });
-  const addGroup = document.createElement("button");
-  addGroup.className = "btn btn-outline";
-  addGroup.type = "button";
-  addGroup.textContent = "Add callout group";
-  addGroup.addEventListener("click", () => {
-    const newId = createId("group");
-    const adminIndex = state.blocks.findIndex((blockItem) => blockItem.type === "adminTools");
-    const insertIndex = adminIndex === -1 ? state.blocks.length : adminIndex;
-    state.blocks.splice(insertIndex, 0, {
-      id: newId,
-      type: "calloutGroup",
-      title: "New callout group",
-      videos: [],
-    });
-    render();
-  });
-
-  const addVideo = document.createElement("button");
-  addVideo.className = "btn btn-outline";
-  addVideo.type = "button";
-  addVideo.textContent = "Add video block";
-  addVideo.addEventListener("click", () => {
-    state.blocks.push({
-      id: createId("video"),
-      type: "video",
-      title: "Video",
-      videos: [],
-    });
-    render();
-  });
-
-  blockRow.appendChild(addRules);
-  blockRow.appendChild(addFlows);
-  blockRow.appendChild(addGroup);
-  blockRow.appendChild(addVideo);
-  body.appendChild(blockRow);
-
-  const note = document.createElement("p");
-  note.className = "admin-note";
-  note.textContent = "Save writes to localStorage on this device. Export/Import lets you share edits as JSON.";
-  body.appendChild(note);
-
-  section.appendChild(body);
   return section;
 }
 
@@ -1977,7 +2297,7 @@ function renderBlockActions(block, index, editing = false) {
   deleteBtn.textContent = "Delete block";
   deleteBtn.addEventListener("click", () => {
     if (block.type === "calloutGroup") {
-      if (!confirm("Delete this callout group and all its call-outs?")) {
+      if (!confirm("Delete this Study Box and all its elements?")) {
         return;
       }
       state.callouts = state.callouts.filter((callout) => callout.groupId !== block.id);
@@ -2056,10 +2376,10 @@ function renderCalloutCard(item, options = {}) {
 
   if (editable) {
     body.appendChild(
-      renderField("Call name", item.callName, (value) => {
+    renderField("Element name", item.callName, (value) => {
         const previousId = card.dataset.cardId;
         item.callName = value;
-        name.textContent = value || "New call";
+        name.textContent = value || "New Element";
         const nextId = `${item.groupId}-${item.callName}`;
         card.dataset.cardId = nextId;
         if (previousId && expandedIds.has(previousId)) {
@@ -2101,7 +2421,7 @@ function renderCalloutCard(item, options = {}) {
   const groups = getCalloutGroups();
   body.appendChild(
     renderSelect(
-      "Category",
+      "Sub-Box",
       item.groupId,
       groups.map((group) => ({ label: group.title, value: group.id })),
       (value) => {
@@ -2148,7 +2468,7 @@ function renderCalloutCard(item, options = {}) {
     body.appendChild(calloutVideos);
   }
 
-  body.appendChild(
+    body.appendChild(
     renderField("Notes", item.notes, (value) => {
       item.notes = value;
     }, {
@@ -2162,7 +2482,7 @@ function renderCalloutCard(item, options = {}) {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-danger span-two";
     deleteBtn.type = "button";
-    deleteBtn.textContent = "Delete call-out";
+    deleteBtn.textContent = "Delete Element";
     deleteBtn.addEventListener("click", () => {
       state.callouts = state.callouts.filter((call) => call !== item);
       render();
@@ -2292,6 +2612,8 @@ function renderVideoSection(block, options = {}) {
   const videos = block.videos || [];
   const hasVideos = videos.length > 0;
   const editable = Boolean(options.editable);
+  const maxVideos = Number.isFinite(options.maxVideos) ? options.maxVideos : Infinity;
+  const canAdd = editable && videos.length < maxVideos;
   if (!editable && !hasVideos && !options.showEmpty) {
     return null;
   }
@@ -2299,9 +2621,9 @@ function renderVideoSection(block, options = {}) {
   const section = document.createElement("div");
   section.className = `block-videos${options.panelPadding ? " panel-body" : ""}${
     options.inCallout ? " callout-videos" : ""
-  }`;
+  }${options.fullWidth ? " video-full" : ""}`;
 
-  if (editable) {
+  if (canAdd) {
     const controls = document.createElement("div");
     controls.className = "video-controls";
 
@@ -2368,7 +2690,8 @@ function renderVideoSection(block, options = {}) {
 
   if (hasVideos) {
     const grid = document.createElement("div");
-    grid.className = `video-grid${videos.length === 1 ? " single" : ""}`;
+    const singleColumn = options.singleColumn || videos.length === 1;
+    grid.className = `video-grid${singleColumn ? " single" : ""}`;
     videos.forEach((video, index) => {
       const card = document.createElement("div");
       card.className = "video-card";
@@ -2446,6 +2769,18 @@ function getVideoTargets() {
         label: `${block.title || "Video"} — ${title}`,
       });
     });
+    if (block.type === "flows") {
+      (block.flows || []).forEach((flow) => {
+        const flowVideos = flow.videos || [];
+        flowVideos.forEach((video, index) => {
+          const title = video.title || `Video ${index + 1}`;
+          targets.push({
+            id: getVideoAnchorId(video),
+            label: `${flow.title || "Sub-Box"} — ${title}`,
+          });
+        });
+      });
+    }
   });
   state.callouts.forEach((callout) => {
     const videos = callout.videos || [];
@@ -2453,7 +2788,7 @@ function getVideoTargets() {
       const title = video.title || `Video ${index + 1}`;
       targets.push({
         id: getVideoAnchorId(video),
-        label: `${callout.callName || "Call-out"} — ${title}`,
+        label: `${callout.callName || "Element"} — ${title}`,
       });
     });
   });
@@ -2471,7 +2806,7 @@ function getLegacyTargetLabel(targetId) {
 function createBlankCall(groupId) {
   return {
     id: createId("callout"),
-    callName: "New call",
+    callName: "New Element",
     groupId,
     context: "",
     meaning: "",
@@ -2547,10 +2882,45 @@ async function handleExportEditorHtml() {
   URL.revokeObjectURL(url);
 }
 
+async function handleExportZip() {
+  const [styles, script] = await Promise.all([getStylesheetText(), getScriptText()]);
+  const indexHtml = buildExportIndexHtml(state);
+  const readme = buildExportReadme(state);
+  const files = [
+    { name: "index.html", content: indexHtml },
+    { name: "styles.css", content: styles },
+    { name: "app.js", content: script },
+    { name: "README.md", content: readme },
+  ];
+  const zipBlob = createZipBlob(files);
+  const url = URL.createObjectURL(zipBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "scscp-project.zip";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function buildViewerHtml(sourceState, styles) {
   const logoHtml = sourceState.header.logoSrc
     ? `<img class="header-logo" src="${escapeHtml(sourceState.header.logoSrc)}" alt="${escapeHtml(sourceState.header.logoAlt || "Header logo")}" />`
     : "";
+  const headerClass = sourceState.header.backgroundSrc ? "site-header has-bg" : "site-header";
+  const headerStyle = sourceState.header.backgroundSrc
+    ? ` style="--header-bg: url('${escapeHtml(sourceState.header.backgroundSrc)}');"`
+    : "";
+  const themeOptions = buildThemeOptions(sourceState.ui?.theme || "default");
+  const socialIcons = (sourceState.header.socialIcons || [])
+    .filter((icon) => icon?.src)
+    .map((icon) => {
+      const iconImg = `<img src="${escapeHtml(icon.src)}" alt="Social icon" />`;
+      return icon.url
+        ? `<a href="${escapeHtml(icon.url)}" target="_blank" rel="noopener noreferrer">${iconImg}</a>`
+        : `<span>${iconImg}</span>`;
+    })
+    .join("");
   const headerHtml = `
       <div class="header-main">
         <div class="header-brand">
@@ -2563,9 +2933,16 @@ function buildViewerHtml(sourceState, styles) {
           </div>
         </div>
         <div class="header-actions">
+          <div class="theme-control">
+            <label for="themeSelect">Theme</label>
+            <select id="themeSelect">
+              ${themeOptions}
+            </select>
+          </div>
           <div class="status-pill">Viewer mode</div>
         </div>
       </div>
+      <div class="header-socials">${socialIcons}</div>
       <nav class="category-nav" id="categoryNav"></nav>
   `;
 
@@ -2588,7 +2965,7 @@ function buildViewerHtml(sourceState, styles) {
     <style>${styles}</style>
   </head>
   <body>
-    <header class="site-header">
+    <header class="${headerClass}"${headerStyle}>
       ${headerHtml}
     </header>
     <main>
@@ -2598,6 +2975,35 @@ function buildViewerHtml(sourceState, styles) {
       ${footerHtml}
     </footer>
     <script>
+      const THEME_KEY = '${THEME_KEY}';
+      const THEMES = ${JSON.stringify(Object.fromEntries(Object.entries(THEMES).map(([key, value]) => [key, value.colors])))};
+      const themeSelect = document.getElementById('themeSelect');
+
+      function applyTheme(themeName) {
+        const theme = THEMES[themeName] || THEMES.default;
+        Object.entries(theme).forEach(([key, value]) => {
+          document.documentElement.style.setProperty(key, value);
+        });
+      }
+
+      function setTheme(themeName) {
+        const next = THEMES[themeName] ? themeName : 'default';
+        localStorage.setItem(THEME_KEY, next);
+        applyTheme(next);
+        if (themeSelect) {
+          themeSelect.value = next;
+        }
+      }
+
+      const savedTheme = localStorage.getItem(THEME_KEY) || '${escapeHtml(sourceState.ui?.theme || "default")}';
+      applyTheme(savedTheme);
+      if (themeSelect) {
+        themeSelect.value = savedTheme;
+        themeSelect.addEventListener('change', (event) => {
+          setTheme(event.target.value);
+        });
+      }
+
       const categoryNav = document.getElementById('categoryNav');
 
       const cards = Array.from(document.querySelectorAll('.callout-card'));
@@ -2634,6 +3040,15 @@ function buildViewerHtml(sourceState, styles) {
 </html>`;
 }
 
+function buildThemeOptions(active) {
+  return Object.entries(THEMES)
+    .map(([key, theme]) => {
+      const selected = key === active ? " selected" : "";
+      return `<option value="${escapeHtml(key)}"${selected}>${escapeHtml(theme.label)}</option>`;
+    })
+    .join("");
+}
+
 function buildEditorHtml(styles, script) {
   const bodyHtml = document.body.innerHTML.replace(/<script[^>]*>[\s\S]*?<\/script>/g, "");
   return `<!doctype html>
@@ -2649,6 +3064,179 @@ ${bodyHtml}
     <script>${script}</script>
   </body>
 </html>`;
+}
+
+function buildExportIndexHtml(sourceState) {
+  const exportedState = {
+    ...sourceState,
+    ui: {
+      ...(sourceState.ui || {}),
+      theme: activeTheme,
+    },
+  };
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(exportedState.header.title)}</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-main">
+        <div id="headerContent"></div>
+        <div class="header-actions">
+          <div class="theme-control">
+            <label for="themeSelect">Theme</label>
+            <select id="themeSelect"></select>
+          </div>
+          <button id="adminToggle" class="btn btn-outline" type="button">Edit</button>
+          <div class="status-pill" id="adminStatus">Viewer mode</div>
+          <button id="addBlock" class="btn btn-ghost" type="button">Add block</button>
+        </div>
+      </div>
+      <div id="headerAdminPanel" class="header-admin-panel"></div>
+      <div id="headerSocials" class="header-socials"></div>
+      <nav class="category-nav" id="categoryNav"></nav>
+    </header>
+
+    <main id="blocksContainer"></main>
+
+    <footer class="site-footer">
+      <div id="footerContent"></div>
+    </footer>
+
+    <script>
+      window.__EXPORTED_STATE__ = ${JSON.stringify(exportedState)};
+    </script>
+    <script src="app.js"></script>
+  </body>
+</html>`;
+}
+
+function buildExportReadme(sourceState) {
+  return `# Space Combat Communication Protocol Template
+
+## Overview
+- \`index.html\`: Page layout and entry point. Includes a small script that injects the exported state before loading \`app.js\`.
+- \`styles.css\`: Theme, layout, and component styling (dark, card-based UI).
+- \`app.js\`: Application logic, rendering, admin tools, and localStorage persistence.
+
+## Data model (stored in localStorage)
+The state is serialized under \`${STORAGE_KEY}\` as JSON. Key areas:
+- \`header\`: eyebrow/title/subtitle/intro, logo, background image, and three social icons.
+- \`ui\`: current theme name.
+- \`roleLabels\`: labels used in Example Box nodes.
+- \`blocks\`: ordered list of Information Boxes, Example Boxes, Study Boxes, and video blocks.
+- \`callouts\`: Elements that belong to Study Boxes via \`groupId\`.
+
+## How to customize
+1. Open \`index.html\` in a browser.
+2. Click **Edit** to reveal the header admin panel.
+3. Adjust content, add/remove boxes, and upload media (stored as base64 in localStorage).
+4. Click **Save** to persist edits locally.
+
+## Extending
+- Add new blocks by using the header admin panel buttons.
+- Edit theme colors in \`app.js\` under \`THEMES\`.
+- Adjust layout tokens in \`styles.css\` (spacing, borders) if needed.
+
+## Notes
+- Uploads are base64-encoded for offline use.
+- The exported state is embedded in \`index.html\` via \`window.__EXPORTED_STATE__\` to make this ZIP immediately runnable.`;
+}
+
+function createZipBlob(files) {
+  const encoder = new TextEncoder();
+  const fileRecords = [];
+  let offset = 0;
+
+  files.forEach((file) => {
+    const data = typeof file.content === "string" ? encoder.encode(file.content) : file.content;
+    const nameBytes = encoder.encode(file.name);
+    const crc = crc32(data);
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const view = new DataView(localHeader.buffer);
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 0, true);
+    view.setUint16(8, 0, true);
+    view.setUint16(10, 0, true);
+    view.setUint16(12, 0, true);
+    view.setUint32(14, crc, true);
+    view.setUint32(18, data.length, true);
+    view.setUint32(22, data.length, true);
+    view.setUint16(26, nameBytes.length, true);
+    view.setUint16(28, 0, true);
+    localHeader.set(nameBytes, 30);
+
+    const localChunk = new Uint8Array(localHeader.length + data.length);
+    localChunk.set(localHeader, 0);
+    localChunk.set(data, localHeader.length);
+
+    fileRecords.push({
+      nameBytes,
+      crc,
+      dataLength: data.length,
+      localOffset: offset,
+      localChunk,
+    });
+    offset += localChunk.length;
+  });
+
+  const centralChunks = [];
+  let centralSize = 0;
+  fileRecords.forEach((record) => {
+    const centralHeader = new Uint8Array(46 + record.nameBytes.length);
+    const view = new DataView(centralHeader.buffer);
+    view.setUint32(0, 0x02014b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 20, true);
+    view.setUint16(8, 0, true);
+    view.setUint16(10, 0, true);
+    view.setUint16(12, 0, true);
+    view.setUint16(14, 0, true);
+    view.setUint32(16, record.crc, true);
+    view.setUint32(20, record.dataLength, true);
+    view.setUint32(24, record.dataLength, true);
+    view.setUint16(28, record.nameBytes.length, true);
+    view.setUint16(30, 0, true);
+    view.setUint16(32, 0, true);
+    view.setUint16(34, 0, true);
+    view.setUint16(36, 0, true);
+    view.setUint32(38, 0, true);
+    view.setUint32(42, record.localOffset, true);
+    centralHeader.set(record.nameBytes, 46);
+    centralChunks.push(centralHeader);
+    centralSize += centralHeader.length;
+  });
+
+  const endRecord = new Uint8Array(22);
+  const endView = new DataView(endRecord.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(4, 0, true);
+  endView.setUint16(6, 0, true);
+  endView.setUint16(8, fileRecords.length, true);
+  endView.setUint16(10, fileRecords.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, offset, true);
+  endView.setUint16(20, 0, true);
+
+  const chunks = [...fileRecords.map((record) => record.localChunk), ...centralChunks, endRecord];
+  return new Blob(chunks, { type: "application/zip" });
+}
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i += 1) {
+    crc ^= data[i];
+    for (let j = 0; j < 8; j += 1) {
+      const mask = -(crc & 1);
+      crc = (crc >>> 1) ^ (0xedb88320 & mask);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 async function getStylesheetText() {
@@ -2696,7 +3284,7 @@ async function getScriptText() {
 function buildViewerBlock(block, sourceState) {
   if (block.type === "rules") {
     return `
-      <section class="panel" id="${block.id}" data-title="${escapeHtml(block.title || "Rules")}">
+      <section class="panel" id="${block.id}" data-title="${escapeHtml(block.title || "Information Box")}">
         <div class="panel-header">
           <h2>${escapeHtml(block.title)}</h2>
         </div>
@@ -2724,7 +3312,7 @@ function buildViewerBlock(block, sourceState) {
   if (block.type === "flows") {
     const legend = block.legend || {};
     return `
-      <section class="panel" id="${block.id}" data-title="${escapeHtml(block.title || "Flows")}">
+      <section class="panel" id="${block.id}" data-title="${escapeHtml(block.title || "Example Box")}">
         <div class="panel-header">
           <h2>${escapeHtml(block.title)}</h2>
           ${block.contextText ? `<div class="block-context">${escapeHtml(block.contextText)}</div>` : ""}
@@ -2781,12 +3369,12 @@ function buildViewerBlock(block, sourceState) {
                 )
                 .join("")}
               ${flow.exampleTargetId ? `<a class="btn btn-ghost flow-example" href="#${escapeHtml(flow.exampleTargetId)}">${escapeHtml(flow.exampleLabel || "Example")}</a>` : ""}
+              ${buildInlineVideosHtml(flow, { panelPadding: false, singleColumn: true, fullWidth: true })}
             </div>
           `
             )
             .join("")}
         </div>
-        ${buildBlockVideosHtml(block)}
       </section>
     `;
   }
@@ -2808,7 +3396,7 @@ function buildViewerBlock(block, sourceState) {
               ${viewerField("Context", callout.context, "half")}
               ${viewerList("When to use", callout.whenToUse, "half")}
               ${viewerField("Meaning", callout.meaning, "half")}
-              ${viewerField("Category", block.title, "half")}
+              ${viewerField("Sub-Box", block.title, "half")}
               ${viewerField("Expected Outcome", callout.responseExpected, "span-two")}
               ${callout.importantNote ? `<div class="callout-note-box span-two">${escapeHtml(callout.importantNote)}</div>` : ""}
               ${calloutVideos ? `<div class="span-two">${calloutVideos}</div>` : ""}
@@ -2820,14 +3408,14 @@ function buildViewerBlock(block, sourceState) {
       .join("");
 
     return `
-      <section class="category-section callout-group-card" id="${block.id}" data-title="${escapeHtml(block.title || "Callouts")}">
+      <section class="category-section callout-group-card" id="${block.id}" data-title="${escapeHtml(block.title || "Study Box")}">
         <div class="category-header">
           <div class="block-title-wrap">
             <h2>${escapeHtml(block.title)}</h2>
             ${block.contextText ? `<span class="block-context">${escapeHtml(block.contextText)}</span>` : ""}
           </div>
         </div>
-        ${cards || '<div class="empty-state">No call-outs in this category yet.</div>'}
+        ${cards || '<div class="empty-state">No elements in this sub-box yet.</div>'}
         ${buildBlockVideosHtml(block, { panelPadding: false })}
       </section>
     `;
@@ -2864,13 +3452,14 @@ function buildInlineVideosHtml(target, options = {}) {
   const videos = target.videos || [];
   const panelClass = options.panelPadding === false ? "" : " panel-body";
   const contextClass = options.inCallout ? " callout-videos" : "";
+  const fullWidthClass = options.fullWidth ? " video-full" : "";
   if (!videos.length && !options.showEmpty) {
     return "";
   }
   if (!videos.length && options.showEmpty) {
-    return `<div class="block-videos${panelClass}${contextClass}"><div class="empty-state">No video added yet.</div></div>`;
+    return `<div class="block-videos${panelClass}${contextClass}${fullWidthClass}"><div class="empty-state">No video added yet.</div></div>`;
   }
-  const gridClass = videos.length === 1 ? "video-grid single" : "video-grid";
+  const gridClass = options.singleColumn || videos.length === 1 ? "video-grid single" : "video-grid";
   const items = videos
     .map((video) => {
       const title = video.title ? `<div class="video-title">${escapeHtml(video.title)}</div>` : "";
@@ -2887,7 +3476,7 @@ function buildInlineVideosHtml(target, options = {}) {
       return "";
     })
     .join("");
-  return `<div class="block-videos${panelClass}${contextClass}"><div class="${gridClass}">${items}</div></div>`;
+  return `<div class="block-videos${panelClass}${contextClass}${fullWidthClass}"><div class="${gridClass}">${items}</div></div>`;
 }
 
 function getYouTubeEmbedUrl(url) {
@@ -2985,11 +3574,10 @@ function showAddBlockMenu() {
     return;
   }
   const choices = [
-    { label: "Rules block", type: "rules" },
-    { label: "Flow block", type: "flows" },
-    { label: "Callout group", type: "calloutGroup" },
+    { label: "Information Box", type: "rules" },
+    { label: "Example Box", type: "flows" },
+    { label: "Study Box", type: "calloutGroup" },
     { label: "Video block", type: "video" },
-    { label: "Admin tools", type: "adminTools" },
   ];
   const selection = prompt(
     `Add block:\n${choices.map((choice, index) => `${index + 1}. ${choice.label}`).join("\n")}`
@@ -3003,24 +3591,25 @@ function showAddBlockMenu() {
     state.blocks.push({
       id: createId("rules"),
       type: "rules",
-      title: "Rules of Use",
+      title: "Information Box",
       videos: [],
-      sections: [{ id: createId("rules-section"), title: "New section", subtitle: "", body: "", note: "" }],
+      sections: [{ id: createId("rules-section"), title: "New Information Sub-Box", subtitle: "", body: "", note: "" }],
     });
   }
   if (choice.type === "flows") {
     state.blocks.push({
       id: createId("flows"),
       type: "flows",
-      title: "Flow Diagrams",
+      title: "Example Box",
       videos: [],
       contextText: "",
       flows: [
         {
           id: createId("flow"),
-          title: "New flow",
+          title: "New Example Sub-Box",
           exampleLabel: "Example",
           exampleTargetId: "",
+          videos: [],
           rows: [
             {
               id: createId("flow-row"),
@@ -3035,22 +3624,14 @@ function showAddBlockMenu() {
   }
   if (choice.type === "calloutGroup") {
     const newId = createId("group");
-    const adminIndex = state.blocks.findIndex((blockItem) => blockItem.type === "adminTools");
-    const insertIndex = adminIndex === -1 ? state.blocks.length : adminIndex;
+    const insertIndex = state.blocks.length;
     state.blocks.splice(insertIndex, 0, {
       id: newId,
       type: "calloutGroup",
-      title: "New callout group",
+      title: "New Study Box",
       contextText: "",
       videos: [],
     });
-  }
-  if (choice.type === "adminTools") {
-    if (state.blocks.some((block) => block.type === "adminTools")) {
-      alert("Admin tools block already exists.");
-      return;
-    }
-    state.blocks.push({ id: createId("admin"), type: "adminTools", title: "Admin Tools" });
   }
   if (choice.type === "video") {
     state.blocks.push({
@@ -3075,5 +3656,6 @@ window.addEventListener("resize", () => {
   updateScrollOffset();
 });
 
+setTheme(activeTheme);
 updateAdminUI();
 render();
