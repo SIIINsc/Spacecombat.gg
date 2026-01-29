@@ -3,7 +3,13 @@
 const STORAGE_KEY = "scscp_state";
 const ADMIN_KEY = "scscp_admin";
 const THEME_KEY = "scscp_theme";
+const MODE_KEY = "scscp_view_mode";
 const ROLE_KEYS = ["shotCaller", "yourself", "enemyTarget"];
+const VISIBILITY_OPTIONS = [
+  { value: "basic", label: "Basic only" },
+  { value: "both", label: "Basic + Advanced" },
+  { value: "advanced", label: "Advanced only" },
+];
 
 const DEFAULT_STATE = {
   header: {
@@ -14,6 +20,8 @@ const DEFAULT_STATE = {
     logoSrc: "",
     logoAlt: "Header logo",
     backgroundSrc: "",
+    donateEnabled: false,
+    donateUrl: "",
     socialIcons: [
       { src: "", url: "" },
       { src: "", url: "" },
@@ -22,6 +30,7 @@ const DEFAULT_STATE = {
   },
   ui: {
     theme: "stanton",
+    viewMode: "basic",
   },
   roleLabels: {
     shotCaller: "Shot caller",
@@ -540,6 +549,7 @@ const THEMES = {
 let state = loadState();
 let adminMode = loadAdmin();
 let activeTheme = loadTheme();
+let activeMode = loadViewMode();
 let expandedIds = new Set();
 let editingBlocks = new Set();
 
@@ -552,6 +562,8 @@ const adminStatus = document.getElementById("adminStatus");
 const themeSelect = document.getElementById("themeSelect");
 const headerAdminPanel = document.getElementById("headerAdminPanel");
 const headerSocials = document.getElementById("headerSocials");
+const headerModeToggle = document.getElementById("headerModeToggle");
+const headerDonateSlot = document.getElementById("headerDonateSlot");
 const siteHeader = document.querySelector(".site-header");
 
 function createId(prefix) {
@@ -623,6 +635,12 @@ function normalizeState(source) {
   if (typeof nextState.header.backgroundSrc !== "string") {
     nextState.header.backgroundSrc = "";
   }
+  if (typeof nextState.header.donateEnabled !== "boolean") {
+    nextState.header.donateEnabled = false;
+  }
+  if (typeof nextState.header.donateUrl !== "string") {
+    nextState.header.donateUrl = "";
+  }
   if (!Array.isArray(nextState.header.socialIcons)) {
     nextState.header.socialIcons = deepClone(DEFAULT_STATE.header.socialIcons);
   } else {
@@ -640,6 +658,7 @@ function normalizeState(source) {
     ...(nextState.ui || {}),
   };
   nextState.ui.theme = resolveThemeName(nextState.ui.theme || "stanton");
+  nextState.ui.viewMode = normalizeViewMode(nextState.ui.viewMode || "basic");
   nextState.roleLabels = {
     ...deepClone(DEFAULT_STATE.roleLabels),
     ...(nextState.roleLabels || {}),
@@ -665,6 +684,7 @@ function normalizeState(source) {
       notes: callout.notes || "",
       imageSrc: typeof callout.imageSrc === "string" ? callout.imageSrc : "",
       importantNote: callout.importantNote || "",
+      visibility: normalizeVisibility(callout.visibility),
       videos: normalizedVideos,
     };
   });
@@ -706,6 +726,9 @@ function normalizeState(source) {
           subtitle: section.subtitle || "",
           body: section.body || "",
           note: section.note || "",
+          mediaType: section.mediaType || "",
+          mediaSrc: section.mediaSrc || "",
+          mediaVideoType: section.mediaVideoType || "local",
         };
       });
     }
@@ -720,6 +743,7 @@ function normalizeState(source) {
         flow.exampleLabel = flow.exampleLabel || "Example";
         flow.exampleTargetId = flow.exampleTargetId || "";
         flow.imageSrc = typeof flow.imageSrc === "string" ? flow.imageSrc : "";
+        flow.visibility = normalizeVisibility(flow.visibility);
         flow.videos = (flow.videos || []).map((video) => ({
           id: video.id || createId("video"),
           title: video.title || "",
@@ -772,6 +796,15 @@ function loadAdmin() {
   return localStorage.getItem(ADMIN_KEY) === "true";
 }
 
+function normalizeViewMode(mode) {
+  return mode === "advanced" ? "advanced" : "basic";
+}
+
+function loadViewMode() {
+  const stored = localStorage.getItem(MODE_KEY) || state?.ui?.viewMode || "basic";
+  return normalizeViewMode(stored);
+}
+
 function loadTheme() {
   const stored = localStorage.getItem(THEME_KEY) || state?.ui?.theme || "stanton";
   return resolveThemeName(stored);
@@ -787,6 +820,14 @@ function resolveThemeName(themeName) {
   };
   const normalized = legacyMap[themeName] || themeName;
   return THEMES[normalized] ? normalized : "stanton";
+}
+
+function normalizeVisibility(value) {
+  return VISIBILITY_OPTIONS.some((option) => option.value === value) ? value : "both";
+}
+
+function getVisibilityClass(value) {
+  return `visibility-${normalizeVisibility(value)}`;
 }
 
 function saveState() {
@@ -807,6 +848,32 @@ function setTheme(themeName) {
     state.ui.theme = activeTheme;
   }
   applyTheme(activeTheme);
+}
+
+function applyViewMode() {
+  document.body.classList.toggle("mode-basic", activeMode === "basic");
+  document.body.classList.toggle("mode-advanced", activeMode === "advanced");
+}
+
+function updateModeToggleUI() {
+  if (!headerModeToggle) {
+    return;
+  }
+  headerModeToggle.querySelectorAll(".mode-btn").forEach((button) => {
+    const isActive = button.dataset.mode === activeMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function setViewMode(mode) {
+  activeMode = normalizeViewMode(mode);
+  localStorage.setItem(MODE_KEY, activeMode);
+  if (state.ui) {
+    state.ui.viewMode = activeMode;
+  }
+  applyViewMode();
+  updateModeToggleUI();
 }
 
 function renderThemeSelector() {
@@ -1117,6 +1184,42 @@ function renderHeaderAdminPanel() {
   });
   headerSection.appendChild(socialsRow);
 
+  const donateSection = document.createElement("div");
+  donateSection.className = "admin-section";
+  const donateTitle = document.createElement("div");
+  donateTitle.className = "admin-section-title";
+  donateTitle.textContent = "Support button";
+  donateSection.appendChild(donateTitle);
+
+  const donateRow = document.createElement("div");
+  donateRow.className = "admin-row";
+  const donateToggleLabel = document.createElement("label");
+  donateToggleLabel.className = "toggle";
+  const donateToggle = document.createElement("input");
+  donateToggle.type = "checkbox";
+  donateToggle.checked = Boolean(state.header.donateEnabled);
+  donateToggle.addEventListener("change", () => {
+    state.header.donateEnabled = donateToggle.checked;
+    renderHeaderActions();
+  });
+  const donateToggleText = document.createElement("span");
+  donateToggleText.textContent = "Show Donate Button";
+  donateToggleLabel.appendChild(donateToggle);
+  donateToggleLabel.appendChild(donateToggleText);
+  donateRow.appendChild(donateToggleLabel);
+
+  const donateUrlInput = document.createElement("input");
+  donateUrlInput.type = "text";
+  donateUrlInput.className = "panel-title-input";
+  donateUrlInput.placeholder = "Donate URL (PayPal)";
+  donateUrlInput.value = state.header.donateUrl || "";
+  donateUrlInput.addEventListener("input", () => {
+    state.header.donateUrl = donateUrlInput.value.trim();
+    renderHeaderActions();
+  });
+  donateRow.appendChild(donateUrlInput);
+  donateSection.appendChild(donateRow);
+
   const lockSection = document.createElement("div");
   lockSection.className = "admin-section";
   const lockTitle = document.createElement("div");
@@ -1236,7 +1339,18 @@ function renderHeaderAdminPanel() {
       type: "rules",
       title: "Information Box",
       videos: [],
-      sections: [{ id: createId("rules-section"), title: "New Information Sub-Box", subtitle: "", body: "", note: "" }],
+      sections: [
+        {
+          id: createId("rules-section"),
+          title: "New Information Sub-Box",
+          subtitle: "",
+          body: "",
+          note: "",
+          mediaType: "",
+          mediaSrc: "",
+          mediaVideoType: "local",
+        },
+      ],
     });
     render();
   });
@@ -1258,6 +1372,7 @@ function renderHeaderAdminPanel() {
           exampleLabel: "Example",
           exampleTargetId: "",
           imageSrc: "",
+          visibility: "both",
           videos: [],
           rows: [],
         },
@@ -1307,6 +1422,7 @@ function renderHeaderAdminPanel() {
   actionSection.appendChild(note);
 
   headerAdminPanel.appendChild(headerSection);
+  headerAdminPanel.appendChild(donateSection);
   headerAdminPanel.appendChild(lockSection);
   headerAdminPanel.appendChild(actionSection);
 }
@@ -1336,6 +1452,44 @@ function renderHeaderSocials() {
       headerSocials.appendChild(wrap);
     }
   });
+}
+
+function renderHeaderActions() {
+  if (headerModeToggle) {
+    headerModeToggle.innerHTML = "";
+    const label = document.createElement("span");
+    label.className = "mode-toggle-label";
+    label.textContent = "Basic / Advanced";
+    const buttons = document.createElement("div");
+    buttons.className = "mode-toggle-buttons";
+    ["basic", "advanced"].forEach((mode) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mode-btn";
+      button.dataset.mode = mode;
+      button.textContent = mode === "basic" ? "Basic" : "Advanced";
+      button.addEventListener("click", () => {
+        setViewMode(mode);
+      });
+      buttons.appendChild(button);
+    });
+    headerModeToggle.appendChild(label);
+    headerModeToggle.appendChild(buttons);
+    updateModeToggleUI();
+  }
+
+  if (headerDonateSlot) {
+    headerDonateSlot.innerHTML = "";
+    if (state.header.donateEnabled && state.header.donateUrl) {
+      const donateLink = document.createElement("a");
+      donateLink.className = "btn btn-outline btn-compact header-donate";
+      donateLink.href = state.header.donateUrl;
+      donateLink.target = "_blank";
+      donateLink.rel = "noopener noreferrer";
+      donateLink.textContent = "Support";
+      headerDonateSlot.appendChild(donateLink);
+    }
+  }
 }
 
 function getHeaderSizeText() {
@@ -1409,6 +1563,137 @@ function createImageUploadControl(labelText, onLoad, onClear, className = "") {
   }
 
   return wrapper;
+}
+
+function createVideoUploadControl(labelText, onLoad, onClear, className = "") {
+  const wrapper = document.createElement("div");
+  wrapper.className = `image-upload${className ? ` ${className}` : ""}`;
+
+  const uploadLabel = document.createElement("label");
+  uploadLabel.className = "btn btn-outline btn-compact";
+  uploadLabel.textContent = labelText;
+
+  const uploadInput = document.createElement("input");
+  uploadInput.type = "file";
+  uploadInput.accept = "video/*";
+  uploadInput.id = createId("video-upload");
+  uploadLabel.setAttribute("for", uploadInput.id);
+  uploadInput.addEventListener("change", () => {
+    const file = uploadInput.files[0];
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      onLoad(reader.result);
+    };
+    reader.readAsDataURL(file);
+    uploadInput.value = "";
+  });
+
+  wrapper.appendChild(uploadLabel);
+  wrapper.appendChild(uploadInput);
+
+  if (onClear) {
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn btn-ghost btn-compact";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      onClear();
+    });
+    wrapper.appendChild(removeBtn);
+  }
+
+  return wrapper;
+}
+
+function renderRuleMedia(section, editable) {
+  const hasMedia = Boolean(section.mediaType && section.mediaSrc);
+  if (!editable && !hasMedia) {
+    return null;
+  }
+
+  const wrap = document.createElement("div");
+  wrap.className = "rule-media";
+
+  if (section.mediaType === "image" && section.mediaSrc) {
+    const image = document.createElement("img");
+    image.className = "flow-image rule-media-image";
+    image.src = section.mediaSrc;
+    image.alt = section.title ? `${section.title} media` : "Information media";
+    wrap.appendChild(image);
+  }
+
+  if (section.mediaType === "video" && section.mediaSrc) {
+    const video = document.createElement("video");
+    video.className = "local-video";
+    video.src = section.mediaSrc;
+    video.controls = true;
+    wrap.appendChild(video);
+  }
+
+  if (editable) {
+    const mediaSelect = renderSelect(
+      "Media type",
+      section.mediaType || "",
+      [
+        { value: "", label: "None" },
+        { value: "image", label: "Image" },
+        { value: "video", label: "Video" },
+      ],
+      (value) => {
+        section.mediaType = value;
+        if (!value) {
+          section.mediaSrc = "";
+        }
+        render();
+      },
+      {
+        editable: true,
+        className: "visibility-control",
+      }
+    );
+    wrap.appendChild(mediaSelect);
+
+    if (section.mediaType === "image") {
+      wrap.appendChild(
+        createImageUploadControl(
+          section.mediaSrc ? "Replace image" : "Upload image",
+          (src) => {
+            section.mediaSrc = src;
+            render();
+          },
+          section.mediaSrc
+            ? () => {
+                section.mediaSrc = "";
+                render();
+              }
+            : null
+        )
+      );
+    }
+
+    if (section.mediaType === "video") {
+      wrap.appendChild(
+        createVideoUploadControl(
+          section.mediaSrc ? "Replace video" : "Upload video",
+          (src) => {
+            section.mediaSrc = src;
+            render();
+          },
+          section.mediaSrc
+            ? () => {
+                section.mediaSrc = "";
+                render();
+              }
+            : null
+        )
+      );
+    }
+  }
+
+  return wrap;
 }
 
 function renderFooter() {
@@ -1489,6 +1774,7 @@ function renderNav() {
 function render() {
   renderThemeSelector();
   renderHeader();
+  renderHeaderActions();
   renderFooter();
   renderNav();
   blocksContainer.innerHTML = "";
@@ -1580,6 +1866,11 @@ function renderRulesBlock(block, index) {
       });
       card.appendChild(noteLabel);
       card.appendChild(noteInput);
+
+      const mediaControls = renderRuleMedia(rulesSection, true);
+      if (mediaControls) {
+        card.appendChild(mediaControls);
+      }
     } else {
       const title = document.createElement("h3");
       title.textContent = rulesSection.title;
@@ -1616,6 +1907,11 @@ function renderRulesBlock(block, index) {
         noteBox.textContent = rulesSection.note;
         card.appendChild(noteBox);
       }
+
+      const mediaBlock = renderRuleMedia(rulesSection, false);
+      if (mediaBlock) {
+        card.appendChild(mediaBlock);
+      }
     }
 
     if (editing) {
@@ -1648,6 +1944,9 @@ function renderRulesBlock(block, index) {
         subtitle: "",
         body: "",
         note: "",
+        mediaType: "",
+        mediaSrc: "",
+        mediaVideoType: "local",
       });
       render();
     });
@@ -1703,7 +2002,7 @@ function renderFlowsBlock(block, index) {
       return;
     }
     const card = document.createElement("div");
-    card.className = "flow-card";
+    card.className = `flow-card ${getVisibilityClass(flow.visibility)}`;
     const content = document.createElement("div");
     content.className = "flow-content";
 
@@ -1716,6 +2015,21 @@ function renderFlowsBlock(block, index) {
         flow.title = titleInput.value;
       });
       content.appendChild(titleInput);
+      content.appendChild(
+        renderSelect(
+          "Visibility",
+          flow.visibility,
+          VISIBILITY_OPTIONS,
+          (value) => {
+            flow.visibility = value;
+            render();
+          },
+          {
+            editable: true,
+            className: "flow-visibility visibility-control",
+          }
+        )
+      );
     } else {
       const title = document.createElement("h3");
       title.textContent = flow.title;
@@ -1864,6 +2178,7 @@ function renderFlowsBlock(block, index) {
         exampleLabel: "Example",
         exampleTargetId: "",
         imageSrc: "",
+        visibility: "both",
         videos: [],
         rows: [],
       });
@@ -2386,7 +2701,7 @@ function renderBlockActions(block, index, editing = false) {
 function renderCalloutCard(item, options = {}) {
   const editable = Boolean(options.editable);
   const card = document.createElement("div");
-  card.className = "callout-card";
+  card.className = `callout-card ${getVisibilityClass(item.visibility)}`;
   const cardId = `${item.groupId}-${item.callName}`;
   card.dataset.cardId = cardId;
 
@@ -2462,6 +2777,21 @@ function renderCalloutCard(item, options = {}) {
         className: "span-two",
       })
     );
+    body.appendChild(
+      renderSelect(
+        "Visibility",
+        item.visibility,
+        VISIBILITY_OPTIONS,
+        (value) => {
+          item.visibility = value;
+          render();
+        },
+        {
+          editable: editable,
+          className: "half visibility-control",
+        }
+      )
+    );
   }
 
   body.appendChild(
@@ -2513,23 +2843,6 @@ function renderCalloutCard(item, options = {}) {
     })
   );
 
-  if (editable) {
-    body.appendChild(
-      renderField("Important note", item.importantNote, (value) => {
-        item.importantNote = value;
-      }, {
-        type: "textarea",
-        editable: editable,
-        className: "span-two",
-      })
-    );
-  } else if (item.importantNote) {
-    const noteBox = document.createElement("div");
-    noteBox.className = "callout-note-box span-two";
-    noteBox.textContent = item.importantNote;
-    body.appendChild(noteBox);
-  }
-
   const calloutVideos = renderVideoSection(item, { panelPadding: false, editable: editable, inCallout: true });
   if (calloutVideos) {
     calloutVideos.classList.add("span-two");
@@ -2551,6 +2864,23 @@ function renderCalloutCard(item, options = {}) {
       className: "span-two",
     })
   );
+
+  if (editable) {
+    body.appendChild(
+      renderField("Important note", item.importantNote, (value) => {
+        item.importantNote = value;
+      }, {
+        type: "textarea",
+        editable: editable,
+        className: "span-two",
+      })
+    );
+  } else if (item.importantNote) {
+    const noteBox = document.createElement("div");
+    noteBox.className = "callout-note-box span-two";
+    noteBox.textContent = item.importantNote;
+    body.appendChild(noteBox);
+  }
 
   if (editable) {
     const deleteBtn = document.createElement("button");
@@ -2881,6 +3211,7 @@ function createBlankCall(groupId) {
     responseExpected: "",
     notes: "",
     importantNote: "",
+    visibility: "both",
     imageSrc: "",
     videos: [],
   };
@@ -2974,6 +3305,10 @@ function buildViewerHtml(sourceState, styles) {
         : `<span>${iconImg}</span>`;
     })
     .join("");
+  const donateButton =
+    sourceState.header.donateEnabled && sourceState.header.donateUrl
+      ? `<a class="btn btn-outline btn-compact header-donate" href="${escapeHtml(sourceState.header.donateUrl)}" target="_blank" rel="noopener noreferrer">Support</a>`
+      : "";
   const headerHtml = `
       <div class="header-main">
         <div class="header-brand">
@@ -2993,6 +3328,14 @@ function buildViewerHtml(sourceState, styles) {
                 ${themeOptions}
               </select>
             </div>
+            <div class="mode-toggle" id="headerModeToggle">
+              <span class="mode-toggle-label">Basic / Advanced</span>
+              <div class="mode-toggle-buttons">
+                <button class="mode-btn" type="button" data-mode="basic">Basic</button>
+                <button class="mode-btn" type="button" data-mode="advanced">Advanced</button>
+              </div>
+            </div>
+            ${donateButton ? `<div class="header-donate-slot">${donateButton}</div>` : ""}
             <div class="status-pill">Viewer mode</div>
           </div>
         </div>
@@ -3031,8 +3374,10 @@ function buildViewerHtml(sourceState, styles) {
     </footer>
     <script>
       const THEME_KEY = '${THEME_KEY}';
+      const MODE_KEY = '${MODE_KEY}';
       const THEMES = ${JSON.stringify(Object.fromEntries(Object.entries(THEMES).map(([key, value]) => [key, value.colors])))};
       const themeSelect = document.getElementById('themeSelect');
+      const modeButtons = Array.from(document.querySelectorAll('.mode-btn'));
 
       function applyTheme(themeName) {
         const theme = THEMES[themeName] || THEMES.stanton;
@@ -3058,6 +3403,28 @@ function buildViewerHtml(sourceState, styles) {
           setTheme(event.target.value);
         });
       }
+
+      function applyMode(mode) {
+        const active = mode === 'advanced' ? 'advanced' : 'basic';
+        document.body.classList.toggle('mode-basic', active === 'basic');
+        document.body.classList.toggle('mode-advanced', active === 'advanced');
+        modeButtons.forEach((button) => {
+          const isActive = button.dataset.mode === active;
+          button.classList.toggle('is-active', isActive);
+          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+        return active;
+      }
+
+      let activeMode = localStorage.getItem(MODE_KEY) || '${escapeHtml(sourceState.ui?.viewMode || "basic")}';
+      activeMode = applyMode(activeMode);
+
+      modeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          activeMode = applyMode(button.dataset.mode);
+          localStorage.setItem(MODE_KEY, activeMode);
+        });
+      });
 
       const categoryNav = document.getElementById('categoryNav');
 
@@ -3130,6 +3497,8 @@ function buildExportIndexHtml(sourceState) {
               <label for="themeSelect">Theme</label>
               <select id="themeSelect"></select>
             </div>
+            <div id="headerModeToggle" class="mode-toggle"></div>
+            <div id="headerDonateSlot" class="header-donate-slot"></div>
             <button id="adminToggle" class="btn btn-outline" type="button">Edit</button>
             <div class="status-pill" id="adminStatus">Viewer mode</div>
           </div>
@@ -3357,6 +3726,7 @@ function buildViewerBlock(block, sourceState) {
                 ${buildParagraphs(section.body)}
               </div>
               ${section.note ? `<div class="note-box">${escapeHtml(section.note)}</div>` : ""}
+              ${buildRuleMediaHtml(section)}
             </div>
           `
             )
@@ -3383,7 +3753,7 @@ function buildViewerBlock(block, sourceState) {
         const flowVideos = buildInlineVideosHtml(flow, { panelPadding: false, singleColumn: true, fullWidth: true });
         const flowMedia = flowImage || flowVideos ? `<div class="flow-media">${flowImage}${flowVideos}</div>` : "";
         return `
-          <div class="flow-card">
+          <div class="flow-card ${getVisibilityClass(flow.visibility)}">
             <div class="flow-content">
               <h3>${escapeHtml(flow.title)}</h3>
               ${flow.rows
@@ -3464,7 +3834,7 @@ function buildViewerBlock(block, sourceState) {
           : "";
         const bodyClass = calloutImage ? "callout-body has-media" : "callout-body";
         return `
-          <div class="callout-card">
+          <div class="callout-card ${getVisibilityClass(callout.visibility)}">
             <div class="callout-header">
               <div class="callout-title">
                 <span class="chevron">▸</span>
@@ -3477,10 +3847,10 @@ function buildViewerBlock(block, sourceState) {
               ${viewerField("Meaning", callout.meaning, "half")}
               ${viewerField("Sub-Box", block.title, "half")}
               ${viewerField("Expected Outcome", callout.responseExpected, "span-two")}
-              ${callout.importantNote ? `<div class="callout-note-box span-two">${escapeHtml(callout.importantNote)}</div>` : ""}
               ${calloutVideos ? `<div class="span-two">${calloutVideos}</div>` : ""}
-              ${viewerField("Notes", callout.notes, "span-two")}
               ${calloutImage}
+              ${viewerField("Notes", callout.notes, "span-two")}
+              ${callout.importantNote ? `<div class="callout-note-box span-two">${escapeHtml(callout.importantNote)}</div>` : ""}
             </div>
           </div>
         `;
@@ -3522,6 +3892,19 @@ function buildParagraphs(value) {
     .filter(Boolean)
     .map((entry) => `<p>${escapeHtml(entry)}</p>`)
     .join("");
+}
+
+function buildRuleMediaHtml(section) {
+  if (!section.mediaType || !section.mediaSrc) {
+    return "";
+  }
+  if (section.mediaType === "image") {
+    return `<div class="rule-media"><img class="flow-image rule-media-image" src="${escapeHtml(section.mediaSrc)}" alt="${escapeHtml(section.title ? `${section.title} media` : "Information media")}" /></div>`;
+  }
+  if (section.mediaType === "video") {
+    return `<div class="rule-media"><video class="local-video" src="${escapeHtml(section.mediaSrc)}" controls></video></div>`;
+  }
+  return "";
 }
 
 function buildBlockVideosHtml(block, options = {}) {
@@ -3668,5 +4051,6 @@ window.addEventListener("resize", () => {
 });
 
 setTheme(activeTheme);
+setViewMode(activeMode);
 updateAdminUI();
 render();
