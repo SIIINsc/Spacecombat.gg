@@ -515,33 +515,33 @@ const THEMES = {
   pyro: {
     label: "Pyro",
     colors: {
-      "--bg": "#17100b",
-      "--panel": "#21160f",
-      "--panel-elev": "#2b1d13",
-      "--line": "#3b2a1d",
-      "--text": "#f2e6d6",
-      "--muted": "#c1b19b",
-      "--accent": "#d48c5a",
-      "--accent-strong": "#e5b070",
-      "--danger": "#e0715e",
-      "--success": "#9bcf8a",
-      "--warning": "#f0c27a",
+      "--bg": "#11100e",
+      "--panel": "#1b1a17",
+      "--panel-elev": "#24211d",
+      "--line": "#332f2a",
+      "--text": "#f3e9dc",
+      "--muted": "#b9a99a",
+      "--accent": "#c07645",
+      "--accent-strong": "#d5965a",
+      "--danger": "#c65b4b",
+      "--success": "#b7a35a",
+      "--warning": "#d4a15b",
     },
   },
   nyx: {
     label: "Nyx",
     colors: {
-      "--bg": "#0a101c",
-      "--panel": "#121c2e",
-      "--panel-elev": "#18253a",
-      "--line": "#243452",
-      "--text": "#e2edf8",
-      "--muted": "#9fb4cc",
-      "--accent": "#6fbef7",
-      "--accent-strong": "#a4ddff",
-      "--danger": "#ff7b7b",
-      "--success": "#7bffcf",
-      "--warning": "#ffd27d",
+      "--bg": "#050a14",
+      "--panel": "#0d1626",
+      "--panel-elev": "#132034",
+      "--line": "#1f2f4d",
+      "--text": "#f3f7ff",
+      "--muted": "#9fb3d3",
+      "--accent": "#7fcfff",
+      "--accent-strong": "#b5e6ff",
+      "--danger": "#ff8a8a",
+      "--success": "#7dffc4",
+      "--warning": "#ffd892",
     },
   },
 };
@@ -560,7 +560,7 @@ const blocksContainer = document.getElementById("blocksContainer");
 const adminToggle = document.getElementById("adminToggle");
 const adminStatus = document.getElementById("adminStatus");
 const themeSelect = document.getElementById("themeSelect");
-const headerAdminPanel = document.getElementById("headerAdminPanel");
+const adminBox = document.getElementById("adminBox");
 const headerSocials = document.getElementById("headerSocials");
 const headerModeToggle = document.getElementById("headerModeToggle");
 const headerDonateSlot = document.getElementById("headerDonateSlot");
@@ -1068,15 +1068,15 @@ function renderHeader() {
   brand.appendChild(wrapper);
   headerContent.appendChild(brand);
 
-  renderHeaderAdminPanel();
+  renderAdminBox();
   renderHeaderSocials();
 }
 
-function renderHeaderAdminPanel() {
-  if (!headerAdminPanel) {
+function renderAdminBox() {
+  if (!adminBox) {
     return;
   }
-  headerAdminPanel.innerHTML = "";
+  adminBox.innerHTML = "";
   if (!adminMode) {
     return;
   }
@@ -1421,10 +1421,10 @@ function renderHeaderAdminPanel() {
   note.textContent = "Save writes to localStorage on this device. Export/Import lets you share edits as JSON.";
   actionSection.appendChild(note);
 
-  headerAdminPanel.appendChild(headerSection);
-  headerAdminPanel.appendChild(donateSection);
-  headerAdminPanel.appendChild(lockSection);
-  headerAdminPanel.appendChild(actionSection);
+  adminBox.appendChild(headerSection);
+  adminBox.appendChild(donateSection);
+  adminBox.appendChild(lockSection);
+  adminBox.appendChild(actionSection);
 }
 
 function renderHeaderSocials() {
@@ -1920,7 +1920,7 @@ function renderRulesBlock(block, index) {
       const removeSection = document.createElement("button");
       removeSection.className = "btn btn-danger";
       removeSection.type = "button";
-      removeSection.textContent = "Delete Information Sub-Box";
+      removeSection.textContent = "Delete Sub-Box";
       removeSection.addEventListener("click", () => {
         block.sections.splice(sectionIndex, 1);
         render();
@@ -2064,7 +2064,7 @@ function renderFlowsBlock(block, index) {
       const removeFlow = document.createElement("button");
       removeFlow.className = "btn btn-danger";
       removeFlow.type = "button";
-      removeFlow.textContent = "Delete Example Sub-Box";
+      removeFlow.textContent = "Delete Sub-Box";
       removeFlow.addEventListener("click", () => {
         block.flows.splice(flowIndex, 1);
         render();
@@ -3502,12 +3502,13 @@ function buildExportIndexHtml(sourceState) {
             <button id="adminToggle" class="btn btn-outline" type="button">Edit</button>
             <div class="status-pill" id="adminStatus">Viewer mode</div>
           </div>
-          <div id="headerAdminPanel" class="header-admin-panel"></div>
         </div>
       </div>
       <div id="headerSocials" class="header-socials"></div>
       <nav class="category-nav" id="categoryNav"></nav>
     </header>
+
+    <section id="adminBox" class="admin-box panel"></section>
 
     <main id="blocksContainer"></main>
 
@@ -3541,12 +3542,12 @@ The state is serialized under \`${STORAGE_KEY}\` as JSON. Key areas:
 
 ## How to customize
 1. Open \`index.html\` in a browser.
-2. Click **Edit** to reveal the header admin panel.
+2. Click **Edit** to reveal the admin box under the header.
 3. Adjust content, add/remove boxes, and upload media (stored as base64 in localStorage).
 4. Click **Save** to persist edits locally.
 
 ## Extending
-- Add new blocks by using the header admin panel buttons.
+- Add new blocks by using the admin box buttons.
 - Edit theme colors in \`app.js\` under \`THEMES\`.
 - Adjust layout tokens in \`styles.css\` (spacing, borders) if needed.
 
