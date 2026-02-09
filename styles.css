@@ -46,7 +46,7 @@ a {
   z-index: 20;
   background: rgba(11, 16, 24, 0.95);
   backdrop-filter: blur(12px);
-  padding: 1.5rem 2rem 1rem;
+  padding: 0.75rem 1.4rem 0.6rem;
   border-bottom: 1px solid var(--line);
   overflow: hidden;
 }
@@ -60,7 +60,7 @@ a {
 .header-main {
   display: flex;
   justify-content: space-between;
-  gap: 2rem;
+  gap: 1rem;
   align-items: center;
   position: relative;
 }
@@ -68,8 +68,8 @@ a {
 #headerModeToggle {
   position: absolute;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: 0.35rem;
+  transform: translateX(-50%);
 }
 
 .header-controls {
@@ -128,11 +128,9 @@ a {
 }
 
 .mode-toggle { display: inline-flex; }
-.mode-switch { position: relative; display: inline-flex; width: 64px; height: 30px; }
-.mode-switch input { opacity: 0; width: 0; height: 0; }
-.mode-slider { position: absolute; inset: 0; background: var(--panel-elev); border: 1px solid var(--line); border-radius: 999px; }
-.mode-slider::before { content: ""; position: absolute; width: 24px; height: 24px; left: 3px; top: 2px; border-radius: 50%; background: var(--accent); transition: transform 0.2s ease; }
-.mode-switch input:checked + .mode-slider::before { transform: translateX(33px); }
+.mode-toggle-buttons { display:inline-flex; gap:0.2rem; padding:0.2rem; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+.mode-btn { border:none; background:transparent; color:var(--muted); padding:0.3rem 0.6rem; border-radius:6px; font-size:0.75rem; cursor:pointer; }
+.mode-btn.is-active { background:rgba(76,195,255,0.15); color:var(--text); }
 
 .header-donate-slot {
   display: flex;
@@ -203,7 +201,7 @@ a {
   text-decoration: none;
   font-size: 0.8rem;
   padding: 0.35rem 0.7rem;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid var(--line);
   color: var(--muted);
   background: var(--panel);
@@ -714,14 +712,6 @@ main {
   align-items: center;
 }
 
-.flow-node-controls input[type="color"] {
-  width: 42px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--line);
-  background: transparent;
-  border-radius: 6px;
-}
 
 .admin-tools {
   display: grid;
@@ -1293,12 +1283,21 @@ input[type="file"] {
   }
 }
 
-.page-nav { margin-top: 0.9rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.page-nav a { text-decoration:none; font-size:0.78rem; padding:0.35rem 0.7rem; border:1px solid var(--line); border-radius:999px; color:var(--muted); background:var(--panel); }
+.page-nav { margin-top: 0.45rem; display: flex; gap: 0.45rem; flex-wrap: wrap; justify-content:center; }
+.page-nav a { text-decoration:none; font-size:0.78rem; padding:0.35rem 0.7rem; border:1px solid var(--line); border-radius:6px; color:var(--muted); background:var(--panel); }
 .page-nav a.is-active { color: var(--text); border-color: var(--accent); }
 .home-hero { overflow:hidden; }
 .home-hero.has-bg { background-image: linear-gradient(rgba(11,16,24,0.82),rgba(11,16,24,0.9)), var(--home-hero-bg); background-size: cover; background-position:center; }
-.home-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+.home-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; }
 .home-tile { display:flex; align-items:center; justify-content:center; min-height:120px; text-decoration:none; color:var(--text); padding:1rem; }
 .home-cta-row{ display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;}
 .advanced-indicator { color: var(--muted); font-size: 0.72rem; }
+
+.home-tile { position:relative; overflow:hidden; border-radius:10px; min-height:150px; background:linear-gradient(rgba(11,16,24,0.72),rgba(11,16,24,0.85)), var(--tile-bg); background-size:cover; background-position:center; }
+.home-tile-title { font-size:1.35rem; font-weight:700; text-align:center; text-shadow:0 2px 10px rgba(0,0,0,0.5); }
+.home-tile-admin{position:absolute;left:0.5rem;right:0.5rem;bottom:0.5rem;display:grid;gap:0.35rem;}
+.home-hero-items{display:grid;gap:0.7rem;}
+.home-hero-item{padding:0.7rem;}
+.rule-card.has-bg{background-image:linear-gradient(rgba(18,26,38,0.88),rgba(18,26,38,0.9)), var(--rule-bg); background-size:cover; background-position:center;}
+@media (max-width: 1100px){.home-tiles{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width: 640px){.home-tiles{grid-template-columns:1fr;}}
