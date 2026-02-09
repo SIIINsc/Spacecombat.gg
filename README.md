@@ -1,65 +1,49 @@
 # spacecombat.gg Training Center (Offline HTML/CSS/JS)
 
-## Structure
-- `index.html` + `styles.css` + `app.js` only (no framework, offline-friendly).
-- Pages are hash-routed:
+## Multi-page structure
+- Offline stack: `index.html`, `styles.css`, `app.js` (no framework).
+- Hash routing:
   - `#home`
-  - `#protocol`
-  - `#meta-space`
-  - `#meta-fps`
-- Header UI is shared across all pages (theme selector, advanced switch, mini-icons, edit toggle).
+  - `#<sub-page-id>` (Protocol, Space Meta, FPS Meta, and any custom sub pages).
+  - `#<sub-page-id>/<block-id>` for jump links.
+- State is stored in localStorage under `scscp_state`.
+- Legacy protocol-only saves are migrated into the current `pages` model automatically.
 
-## Data model (localStorage)
-Stored under `scscp_state`.
+## Home vs sub-page admin behavior
+- **Home admin panel** includes full project controls (save/reset/import/export/online build) and full header controls.
+- **Sub-page admin panel** is simplified and page-aware:
+  - Shows block creation controls (Information, Example, Study, Video) and page-local hero controls.
+  - Hides home/global controls like support, online credentials, and header mini-icons.
+- `Export final (viewer-only HTML)` is visible only on Home, because it exports the whole site.
 
-- `home`
-  - `title`, `subtitle`
-  - `heroImageSrc` (base64/image URL)
-  - `ctaButtons`
-- `pages`
-  - `protocol`, `meta-space`, `meta-fps`
-  - Each page has:
-    - `blocks[]`
-    - `callouts[]`
+## Hero content modules
+- Home hero and sub-page hero both support modular items:
+  - text blocks
+  - image blocks (base64-friendly)
+  - video blocks (base64-friendly)
+- In Edit mode you can:
+  - add/remove hero items
+  - reorder hero items
+  - edit hero title/subtitle
 
-Legacy single-page saves are migrated automatically into `pages.protocol`.
+## Home grid sub-page boxes + GIF hover behavior
+- Home sub-page navigation is a card grid (max 4 cards per row; wraps to next row).
+- Each card supports:
+  - static background image
+  - optional hover media (image or GIF)
+- For GIF-like behavior, use:
+  - **static image** for non-hover state
+  - **hover media** for hover animation state
 
-## Home page hero data
-Hero content is in `state.home`:
-- `state.home.title`
-- `state.home.subtitle`
-- `state.home.heroImageSrc`
-- `state.home.ctaButtons`
+## Navigation scroll offset logic
+- Anchor/jump navigation uses a dynamic header offset.
+- Offset is computed from the **current header height**, so targets align directly under the header even when header height changes.
+- Works for:
+  - Home links
+  - Sub-page block links
+  - Hash-based anchor routes
 
-In Edit mode you can upload/replace the hero background image (stored as base64).
-
-## Adding a new section/page
-1. Add an entry to `PAGE_DEFINITIONS` in `app.js`.
-2. Add page content in `state.pages[<id>]` (blocks + callouts).
-3. Add a home tile/CTA target if desired.
-4. Use `#<id>` to navigate.
-
-## Basic / Advanced visibility
-- Global mode switch controls viewer filtering (`basic` / `advanced`).
-- Elements and sub-elements can be marked:
-  - `Basic only`
-  - `Basic + Advanced`
-  - `Advanced only`
-- In Advanced mode, advanced-only elements show a subtle advanced indicator next to title.
-
-## Themes (color-only)
-Theme palette lives in `THEMES` in `app.js`.
-Included:
-- Stanton
-- Grimhex
-- Pyro (rusty/industrial; no blue)
-- AVS
-- Blightveil
-- Shadow Moses
-
-No layout/spacing/typography changes are made by theme selection.
-
-## Export/import
-- JSON export/import still works.
-- Viewer HTML export still works.
-- ZIP export still works and includes current multi-page capable app.
+## Notes
+- Keep uploads as base64 for fully offline use.
+- Role label colors are the source of truth for Example node coloring.
+- Existing protocol defaults are preserved.
