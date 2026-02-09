@@ -1,13 +1,65 @@
-# Star Citizen Space Combat Communication Protocol
+# spacecombat.gg Training Center (Offline HTML/CSS/JS)
 
-## How to run
-Open `index.html` directly in your browser (double-click). No build tools or servers required.
+## Structure
+- `index.html` + `styles.css` + `app.js` only (no framework, offline-friendly).
+- Pages are hash-routed:
+  - `#home`
+  - `#protocol`
+  - `#meta-space`
+  - `#meta-fps`
+- Header UI is shared across all pages (theme selector, advanced switch, mini-icons, edit toggle).
 
-## Admin lock disclaimer (important)
-This is a **static offline site**. Edit mode is a convenience toggle intended to prevent accidental edits. It is **not true security** and does not protect against someone who can open and edit the files directly.
+## Data model (localStorage)
+Stored under `scscp_state`.
 
-## Online build (static hosting)
-Open the editor, click **Edit**, and use **Generate Online Build** in the admin panel to download a hosting-ready ZIP. The online build includes a subtle admin login link at the bottom of the page that unlocks edit mode using the credentials you set in the offline editor.
+- `home`
+  - `title`, `subtitle`
+  - `heroImageSrc` (base64/image URL)
+  - `ctaButtons`
+- `pages`
+  - `protocol`, `meta-space`, `meta-fps`
+  - Each page has:
+    - `blocks[]`
+    - `callouts[]`
 
-## Security note
-Because this is a static HTML/CSS/JS project, the online login is **client-side only** and not real security. For production hosting, add server-side protection (basic auth/htpasswd or platform password protection).
+Legacy single-page saves are migrated automatically into `pages.protocol`.
+
+## Home page hero data
+Hero content is in `state.home`:
+- `state.home.title`
+- `state.home.subtitle`
+- `state.home.heroImageSrc`
+- `state.home.ctaButtons`
+
+In Edit mode you can upload/replace the hero background image (stored as base64).
+
+## Adding a new section/page
+1. Add an entry to `PAGE_DEFINITIONS` in `app.js`.
+2. Add page content in `state.pages[<id>]` (blocks + callouts).
+3. Add a home tile/CTA target if desired.
+4. Use `#<id>` to navigate.
+
+## Basic / Advanced visibility
+- Global mode switch controls viewer filtering (`basic` / `advanced`).
+- Elements and sub-elements can be marked:
+  - `Basic only`
+  - `Basic + Advanced`
+  - `Advanced only`
+- In Advanced mode, advanced-only elements show a subtle advanced indicator next to title.
+
+## Themes (color-only)
+Theme palette lives in `THEMES` in `app.js`.
+Included:
+- Stanton
+- Grimhex
+- Pyro (rusty/industrial; no blue)
+- AVS
+- Blightveil
+- Shadow Moses
+
+No layout/spacing/typography changes are made by theme selection.
+
+## Export/import
+- JSON export/import still works.
+- Viewer HTML export still works.
+- ZIP export still works and includes current multi-page capable app.

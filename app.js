@@ -23,6 +23,19 @@ const VISIBILITY_OPTIONS = [
   { value: "both", label: "Basic + Advanced" },
   { value: "advanced", label: "Advanced only" },
 ];
+const DEFAULT_SUB_ELEMENTS = [
+  "When to use",
+  "Expected Outcome",
+  "Context",
+  "Meaning",
+];
+
+const PAGE_DEFINITIONS = {
+  home: { id: "home", title: "Home", navLabel: "Home" },
+  protocol: { id: "protocol", title: "Space Combat Communication Protocol", navLabel: "Protocol" },
+  "meta-space": { id: "meta-space", title: "Space Combat Current Meta", navLabel: "Space Meta" },
+  "meta-fps": { id: "meta-fps", title: "FPS Combat Meta", navLabel: "FPS Meta" },
+};
 
 const DEFAULT_STATE = {
   header: {
@@ -545,6 +558,54 @@ const THEMES = {
       "--warning": "#d1a35f",
     },
   },
+  avs: {
+    label: "AVS",
+    colors: {
+      "--bg": "#09101e",
+      "--panel": "#111d33",
+      "--panel-elev": "#172844",
+      "--line": "#2f4163",
+      "--text": "#e8edf7",
+      "--muted": "#a7b5cd",
+      "--accent": "#5daeff",
+      "--accent-strong": "#8ac4ff",
+      "--danger": "#cf6f79",
+      "--success": "#78bea5",
+      "--warning": "#c6b48e",
+    },
+  },
+  blightveil: {
+    label: "Blightveil",
+    colors: {
+      "--bg": "#09070f",
+      "--panel": "#131026",
+      "--panel-elev": "#1b1533",
+      "--line": "#2f2a48",
+      "--text": "#e6e2f4",
+      "--muted": "#a9a2c3",
+      "--accent": "#6759b8",
+      "--accent-strong": "#8475d1",
+      "--danger": "#a05e76",
+      "--success": "#6ea49a",
+      "--warning": "#b19a7a",
+    },
+  },
+  shadowMoses: {
+    label: "Shadow Moses",
+    colors: {
+      "--bg": "#070607",
+      "--panel": "#141013",
+      "--panel-elev": "#1d161b",
+      "--line": "#34262d",
+      "--text": "#ece5e8",
+      "--muted": "#b9a7af",
+      "--accent": "#8d3f4f",
+      "--accent-strong": "#aa5568",
+      "--danger": "#b65a63",
+      "--success": "#7ea08d",
+      "--warning": "#af8a76",
+    },
+  },
 };
 
 let state = loadState();
@@ -553,6 +614,7 @@ let activeTheme = loadTheme();
 let activeMode = loadViewMode();
 let expandedIds = new Set();
 let editingBlocks = new Set();
+let currentPageId = "home";
 
 const headerContent = document.getElementById("headerContent");
 const footerContent = document.getElementById("footerContent");
@@ -563,6 +625,7 @@ const adminStatus = document.getElementById("adminStatus");
 const themeSelect = document.getElementById("themeSelect");
 const adminBox = document.getElementById("adminBox");
 const headerSocials = document.getElementById("headerSocials");
+const pageNav = document.getElementById("pageNav");
 const headerModeToggle = document.getElementById("headerModeToggle");
 const headerDonateSlot = document.getElementById("headerDonateSlot");
 const siteHeader = document.querySelector(".site-header");
@@ -624,6 +687,105 @@ function migrateLegacyCallouts(callouts) {
   return nextState;
 }
 
+
+function createDefaultHomePage() {
+  return {
+    id: "home",
+    title: "Welcome to the spacecombat.gg Training Center",
+    subtitle: "Offline-ready doctrine and meta pages for pilots and FPS teams.",
+    heroImageSrc: "",
+    ctaButtons: [
+      { label: "Open Protocol", target: "protocol", enabled: true },
+      { label: "Current Space Meta", target: "meta-space", enabled: true },
+    ],
+  };
+}
+
+function createMetaPage(pageId, title) {
+  const groupId = createId("group");
+  return {
+    id: pageId,
+    title,
+    blocks: [
+      {
+        id: createId("rules"),
+        type: "rules",
+        title: "Overview",
+        sections: [{ id: createId("rules-section"), title: "Summary", subtitle: "", body: "", note: "" }],
+      },
+      { id: groupId, type: "calloutGroup", title: "Focus Areas", contextText: "" },
+    ],
+    callouts: [
+      {
+        id: createId("callout"),
+        callName: "Starter Element",
+        groupId,
+        subElements: DEFAULT_SUB_ELEMENTS.map((label) => ({ id: createId("subel"), title: label, content: "" })),
+        notes: "",
+        importantNote: "",
+        visibility: "both",
+        imageSrc: "",
+        videos: [],
+      },
+    ],
+  };
+}
+
+function ensureCalloutSubElements(callout) {
+  if (!Array.isArray(callout.subElements) || !callout.subElements.length) {
+    callout.subElements = [
+      { id: createId("subel"), title: "When to use", content: callout.whenToUse || "" },
+      { id: createId("subel"), title: "Expected Outcome", content: callout.responseExpected || "" },
+      { id: createId("subel"), title: "Context", content: callout.context || "" },
+      { id: createId("subel"), title: "Meaning", content: callout.meaning || "" },
+    ];
+  }
+  callout.subElements = callout.subElements.map((sub) => ({
+    id: sub.id || createId("subel"),
+    title: typeof sub.title === "string" ? sub.title : "Sub-Element",
+    content: typeof sub.content === "string" ? sub.content : "",
+    visibility: normalizeVisibility(sub.visibility || "both"),
+  }));
+}
+
+function migrateToPages(nextState) {
+  if (nextState.pages && typeof nextState.pages === "object") {
+    return nextState;
+  }
+  const protocolPage = {
+    id: "protocol",
+    title: PAGE_DEFINITIONS.protocol.title,
+    blocks: nextState.blocks || [],
+    callouts: nextState.callouts || [],
+  };
+  nextState.pages = {
+    protocol: protocolPage,
+    "meta-space": createMetaPage("meta-space", PAGE_DEFINITIONS["meta-space"].title),
+    "meta-fps": createMetaPage("meta-fps", PAGE_DEFINITIONS["meta-fps"].title),
+  };
+  nextState.home = createDefaultHomePage();
+  delete nextState.blocks;
+  delete nextState.callouts;
+  return nextState;
+}
+
+function getCurrentPage() {
+  if (currentPageId === "home") {
+    return null;
+  }
+  return state.pages[currentPageId] || state.pages.protocol;
+}
+
+function getPageBlocks() {
+  const page = getCurrentPage();
+  return page ? page.blocks : [];
+}
+
+function getPageCallouts() {
+  const page = getCurrentPage();
+  return page ? page.callouts : [];
+}
+
 function normalizeState(source) {
   const nextState = deepClone(source);
   nextState.header = nextState.header || {};
@@ -672,45 +834,54 @@ function normalizeState(source) {
     nextState.onlineAuth.password = DEFAULT_STATE.onlineAuth.password;
   }
 
-  nextState.callouts = (nextState.callouts || []).map((callout) => {
+  migrateToPages(nextState);
+  if (!nextState.home) {
+    nextState.home = createDefaultHomePage();
+  }
+  nextState.home = { ...createDefaultHomePage(), ...nextState.home };
+
+  Object.values(nextState.pages || {}).forEach((page) => {
+    page.blocks = normalizeBlocks(page.blocks || []);
+    page.callouts = normalizeCallouts(page.callouts || []);
+  });
+
+  return nextState;
+}
+
+function normalizeCallouts(callouts) {
+  return (callouts || []).map((callout) => {
     const normalizedVideos = (callout.videos || []).map((video) => ({
       id: video.id || createId("video"),
       title: video.title || "",
       type: video.type,
       src: video.src,
     }));
-    const whenText = Array.isArray(callout.whenToUse)
-      ? callout.whenToUse.filter(Boolean).join("\n")
-      : callout.whenToUse || "";
-    return {
+    const normalized = {
       ...callout,
       callName: callout.callName || "New Element",
-      context: callout.context || "",
-      meaning: callout.meaning || "",
-      whenToUse: whenText,
-      responseExpected: callout.responseExpected || "",
       notes: callout.notes || "",
       imageSrc: typeof callout.imageSrc === "string" ? callout.imageSrc : "",
       importantNote: callout.importantNote || "",
       visibility: normalizeVisibility(callout.visibility),
       videos: normalizedVideos,
     };
+    ensureCalloutSubElements(normalized);
+    return normalized;
   });
+}
 
-  nextState.blocks = (nextState.blocks || []).map((block) => {
+function normalizeBlocks(blocks) {
+  return (blocks || []).map((block) => {
     if (block.type === "adminTools") {
       return null;
     }
     if (block.type === "youtube") {
-      const migratedBlock = {
+      return {
         id: block.id,
         type: "video",
         title: block.title || "Video",
-        videos: block.url
-          ? [{ id: createId("video"), type: "youtube", src: block.url, title: "" }]
-          : [],
+        videos: block.url ? [{ id: createId("video"), type: "youtube", src: block.url, title: "" }] : [],
       };
-      return migratedBlock;
     }
     block.videos = (block.videos || []).map((video) => ({
       id: video.id || createId("video"),
@@ -722,82 +893,33 @@ function normalizeState(source) {
       if (block.title === "Rules of Use") {
         block.title = "Information Box";
       }
-      block.sections = (block.sections || []).map((section) => {
-        if (Array.isArray(section.items) && !section.body) {
-          section.body = section.items.join("\n");
-        }
-        return {
-          title: section.title || "New Information Sub-Box",
-          subtitle: "",
-          note: "",
-          ...section,
-          subtitle: section.subtitle || "",
-          body: section.body || "",
-          note: section.note || "",
-          mediaType: section.mediaType || "",
-          mediaSrc: section.mediaSrc || "",
-          mediaVideoType: section.mediaVideoType || "local",
-        };
-      });
+      block.sections = (block.sections || []).map((section) => ({
+        title: section.title || "New Information Sub-Box",
+        subtitle: section.subtitle || "",
+        body: section.body || (Array.isArray(section.items) ? section.items.join("\n") : ""),
+        note: section.note || "",
+        mediaType: section.mediaType || "",
+        mediaSrc: section.mediaSrc || "",
+        mediaVideoType: section.mediaVideoType || "local",
+      }));
     }
     if (block.type === "flows") {
-      if (block.title === "Flow Diagrams") {
-        block.title = "Example Box";
-      }
-      if (typeof block.contextText !== "string") {
-        block.contextText = "";
-      }
-      block.flows = (block.flows || []).map((flow) => {
-        flow.exampleLabel = flow.exampleLabel || "Example";
-        flow.exampleTargetId = flow.exampleTargetId || "";
-        flow.imageSrc = typeof flow.imageSrc === "string" ? flow.imageSrc : "";
-        flow.visibility = normalizeVisibility(flow.visibility);
-        flow.videos = (flow.videos || []).map((video) => ({
-          id: video.id || createId("video"),
-          title: video.title || "",
-          type: video.type,
-          src: video.src,
-        }));
-        flow.rows = (flow.rows || []).map((row) => {
-          row.rowTitle = row.rowTitle || "";
-          row.rowContext = row.rowContext || row.rowExample || "";
-          const normalizedElements = [];
-          (row.elements || []).forEach((element, index) => {
-            if (element.type === "node") {
-              if (!element.role) {
-                element.role = "yourself";
-              }
-              element.color = element.color || "";
-            }
-            if (element.type === "arrow") {
-              element.kind = element.kind || "breath";
-            }
-            normalizedElements.push(element);
-            const next = row.elements[index + 1];
-            if (element.type === "node" && next && next.type === "node") {
-              normalizedElements.push({ id: createId("el"), type: "arrow", kind: "breath" });
-            }
-          });
-          row.elements = normalizedElements;
-          return row;
-        });
-        return flow;
-      });
-      if ((block.videos || []).length && block.flows.length) {
-        const [firstFlow] = block.flows;
-        firstFlow.videos = [...(block.videos || []), ...(firstFlow.videos || [])];
-        block.videos = [];
-      }
+      block.contextText = typeof block.contextText === "string" ? block.contextText : "";
+      block.flows = (block.flows || []).map((flow) => ({
+        ...flow,
+        exampleLabel: flow.exampleLabel || "Example",
+        exampleTargetId: flow.exampleTargetId || "",
+        imageSrc: typeof flow.imageSrc === "string" ? flow.imageSrc : "",
+        visibility: normalizeVisibility(flow.visibility),
+        videos: (flow.videos || []).map((video) => ({ id: video.id || createId("video"), title: video.title || "", type: video.type, src: video.src })),
+        rows: (flow.rows || []).map((row) => ({ ...row, rowTitle: row.rowTitle || "", rowContext: row.rowContext || row.rowExample || "", elements: row.elements || [] })),
+      }));
     }
     if (block.type === "calloutGroup") {
-      if (typeof block.contextText !== "string") {
-        block.contextText = "";
-      }
+      block.contextText = typeof block.contextText === "string" ? block.contextText : "";
     }
     return block;
   }).filter(Boolean);
-
-  return nextState;
 }
 
 function loadAdmin() {
@@ -928,11 +1050,10 @@ function updateModeToggleUI() {
   if (!headerModeToggle) {
     return;
   }
-  headerModeToggle.querySelectorAll(".mode-btn").forEach((button) => {
-    const isActive = button.dataset.mode === activeMode;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
+  const input = headerModeToggle.querySelector("input[type='checkbox']");
+  if (input) {
+    input.checked = activeMode === "advanced";
+  }
 }
 
 function setViewMode(mode) {
@@ -985,6 +1106,17 @@ function updateAdminUI() {
   render();
 }
 
+function syncPageFromHash() {
+  const raw = (window.location.hash || "#home").slice(1);
+  const [pageId] = raw.split("/");
+  currentPageId = PAGE_DEFINITIONS[pageId] ? pageId : "home";
+}
+
+window.addEventListener("hashchange", () => {
+  syncPageFromHash();
+  render();
+});
+
 function updateScrollOffset() {
   const header = document.querySelector(".site-header");
   const offset = header ? header.offsetHeight + 12 : 180;
@@ -1019,7 +1151,7 @@ function setExpanded(id, expanded) {
 }
 
 function getCalloutGroups() {
-  return state.blocks.filter((block) => block.type === "calloutGroup");
+  return getPageBlocks().filter((block) => block.type === "calloutGroup");
 }
 
 function renderHeader() {
@@ -1437,7 +1569,7 @@ function renderAdminBox() {
   addInfo.type = "button";
   addInfo.textContent = "Add Information Box";
   addInfo.addEventListener("click", () => {
-    state.blocks.push({
+    getPageBlocks().push({
       id: createId("rules"),
       type: "rules",
       title: "Information Box",
@@ -1462,7 +1594,7 @@ function renderAdminBox() {
   addExample.type = "button";
   addExample.textContent = "Add Example Box";
   addExample.addEventListener("click", () => {
-    state.blocks.push({
+    getPageBlocks().push({
       id: createId("flows"),
       type: "flows",
       title: "Example Box",
@@ -1489,8 +1621,8 @@ function renderAdminBox() {
   addStudy.textContent = "Add Study Box";
   addStudy.addEventListener("click", () => {
     const newId = createId("group");
-    const insertIndex = state.blocks.length;
-    state.blocks.splice(insertIndex, 0, {
+    const insertIndex = getPageBlocks().length;
+    getPageBlocks().splice(insertIndex, 0, {
       id: newId,
       type: "calloutGroup",
       title: "New Study Box",
@@ -1504,7 +1636,7 @@ function renderAdminBox() {
   addVideo.type = "button";
   addVideo.textContent = "Add video block";
   addVideo.addEventListener("click", () => {
-    state.blocks.push({
+    getPageBlocks().push({
       id: createId("video"),
       type: "video",
       title: "Video",
@@ -1562,24 +1694,18 @@ function renderHeaderSocials() {
 function renderHeaderActions() {
   if (headerModeToggle) {
     headerModeToggle.innerHTML = "";
-    const label = document.createElement("span");
-    label.className = "mode-toggle-label";
-    label.textContent = "Basic / Advanced";
-    const buttons = document.createElement("div");
-    buttons.className = "mode-toggle-buttons";
-    ["basic", "advanced"].forEach((mode) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "mode-btn";
-      button.dataset.mode = mode;
-      button.textContent = mode === "basic" ? "Basic" : "Advanced";
-      button.addEventListener("click", () => {
-        setViewMode(mode);
-      });
-      buttons.appendChild(button);
-    });
-    headerModeToggle.appendChild(label);
-    headerModeToggle.appendChild(buttons);
+    const wrap = document.createElement("label");
+    wrap.className = "mode-switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = activeMode === "advanced";
+    input.setAttribute("aria-label", "Toggle advanced mode");
+    input.addEventListener("change", () => setViewMode(input.checked ? "advanced" : "basic"));
+    const slider = document.createElement("span");
+    slider.className = "mode-slider";
+    wrap.appendChild(input);
+    wrap.appendChild(slider);
+    headerModeToggle.appendChild(wrap);
     updateModeToggleUI();
   }
 
@@ -1947,12 +2073,67 @@ function renderFooter() {
 
 function renderNav() {
   categoryNav.innerHTML = "";
-  state.blocks.forEach((block) => {
+  if (currentPageId === "home") {
+    return;
+  }
+  getPageBlocks().forEach((block) => {
     const link = document.createElement("a");
-    link.href = `#${block.id}`;
+    link.href = `#${currentPageId}/${block.id}`;
     link.textContent = block.title || "Untitled block";
     categoryNav.appendChild(link);
   });
+}
+
+function renderPageNav() {
+  if (!pageNav) return;
+  pageNav.innerHTML = "";
+  Object.values(PAGE_DEFINITIONS).forEach((page) => {
+    const link = document.createElement("a");
+    link.href = `#${page.id}`;
+    link.textContent = page.navLabel;
+    if (page.id === currentPageId) link.classList.add("is-active");
+    pageNav.appendChild(link);
+  });
+}
+
+function renderHomePage() {
+  const home = state.home;
+  const hero = document.createElement("section");
+  hero.className = "panel home-hero";
+  if (home.heroImageSrc) {
+    hero.classList.add("has-bg");
+    hero.style.setProperty("--home-hero-bg", `url('${home.heroImageSrc}')`);
+  }
+  const body = document.createElement("div");
+  body.className = "panel-body";
+  body.appendChild(renderField("Hero title", home.title, (v)=>{home.title=v;}, { type:"text", editable: adminMode, className:"span-two" }));
+  body.appendChild(renderField("Hero subtitle", home.subtitle, (v)=>{home.subtitle=v;}, { type:"textarea", editable: adminMode, className:"span-two", multilineDisplay:true }));
+  if (adminMode) {
+    body.appendChild(createImageUploadControl(home.heroImageSrc ? "Replace hero image" : "Upload hero image", (src)=>{home.heroImageSrc=src; render();}, home.heroImageSrc ? ()=>{home.heroImageSrc=""; render();}:null));
+  }
+  const ctaRow = document.createElement("div");
+  ctaRow.className = "home-cta-row";
+  (home.ctaButtons || []).filter((b)=>b.enabled).forEach((btn) => {
+    const b = document.createElement("a");
+    b.className = "btn btn-outline";
+    b.href = `#${btn.target}`;
+    b.textContent = btn.label;
+    ctaRow.appendChild(b);
+  });
+  body.appendChild(ctaRow);
+  hero.appendChild(body);
+  blocksContainer.appendChild(hero);
+
+  const tiles = document.createElement("section");
+  tiles.className = "home-tiles";
+  ["protocol","meta-space","meta-fps"].forEach((id) => {
+    const tile = document.createElement("a");
+    tile.className = "panel home-tile";
+    tile.href = `#${id}`;
+    tile.textContent = PAGE_DEFINITIONS[id].title;
+    tiles.appendChild(tile);
+  });
+  blocksContainer.appendChild(tiles);
 }
 
 function render() {
@@ -1960,10 +2141,17 @@ function render() {
   renderHeader();
   renderHeaderActions();
   renderFooter();
+  renderPageNav();
   renderNav();
   blocksContainer.innerHTML = "";
 
-  state.blocks.forEach((block, index) => {
+  if (currentPageId === "home") {
+    renderHomePage();
+    updateScrollOffset();
+    return;
+  }
+
+  getPageBlocks().forEach((block, index) => {
     if (block.type === "rules") {
       blocksContainer.appendChild(renderRulesBlock(block, index));
       return;
@@ -2886,7 +3074,7 @@ function renderCalloutGroupBlock(block, index) {
     addBtn.type = "button";
     addBtn.textContent = "Add Element";
     addBtn.addEventListener("click", () => {
-      state.callouts.push(createBlankCall(block.id));
+      getPageCallouts().push(createBlankCall(block.id));
       render();
     });
     actionWrap.appendChild(addBtn);
@@ -2896,7 +3084,7 @@ function renderCalloutGroupBlock(block, index) {
   header.appendChild(actionWrap);
   section.appendChild(header);
 
-  const groupCallouts = state.callouts.filter((callout) => callout.groupId === block.id);
+  const groupCallouts = getPageCallouts().filter((callout) => callout.groupId === block.id);
 
   if (!groupCallouts.length) {
     const empty = document.createElement("div");
@@ -2957,7 +3145,7 @@ function renderBlockActions(block, index, editing = false) {
   moveUp.textContent = "↑";
   moveUp.title = "Move block up";
   moveUp.addEventListener("click", () => {
-    moveItem(state.blocks, index, -1);
+    moveItem(getPageBlocks(), index, -1);
   });
 
   const moveDown = document.createElement("button");
@@ -2966,7 +3154,7 @@ function renderBlockActions(block, index, editing = false) {
   moveDown.textContent = "↓";
   moveDown.title = "Move block down";
   moveDown.addEventListener("click", () => {
-    moveItem(state.blocks, index, 1);
+    moveItem(getPageBlocks(), index, 1);
   });
 
   const deleteBtn = document.createElement("button");
@@ -2978,9 +3166,12 @@ function renderBlockActions(block, index, editing = false) {
       if (!confirm("Delete this Study Box and all its elements?")) {
         return;
       }
-      state.callouts = state.callouts.filter((callout) => callout.groupId !== block.id);
+      const pageCallouts = getPageCallouts();
+      for (let i = pageCallouts.length - 1; i >= 0; i -= 1) {
+        if (pageCallouts[i].groupId === block.id) pageCallouts.splice(i, 1);
+      }
     }
-    state.blocks.splice(index, 1);
+    getPageBlocks().splice(index, 1);
     render();
   });
 
@@ -3019,6 +3210,13 @@ function renderCalloutCard(item, options = {}) {
   name.textContent = item.callName;
   title.appendChild(chevron);
   title.appendChild(name);
+  if (activeMode === "advanced" && (item.visibility === "advanced" || item.advancedTag)) {
+    const badge = document.createElement("span");
+    badge.className = "advanced-indicator";
+    badge.textContent = "◆";
+    badge.title = "Advanced";
+    title.appendChild(badge);
+  }
 
   const actions = document.createElement("div");
   actions.className = "callout-actions";
@@ -3087,27 +3285,65 @@ function renderCalloutCard(item, options = {}) {
     );
   }
 
-  body.appendChild(
-    renderField("Context", item.context, (value) => {
-      item.context = value;
-    }, {
-      type: "textarea",
-      editable: editable,
-      className: "half",
-    })
-  );
+  item.subElements.forEach((sub, subIndex) => {
+    body.appendChild(
+      renderField(sub.title, sub.content, (value) => {
+        sub.content = value;
+      }, {
+        type: "textarea",
+        editable: editable,
+        className: "half",
+        multilineDisplay: true,
+      })
+    );
+    if (editable) {
+      const controls = document.createElement("div");
+      controls.className = "block-actions";
+      const titleInput = document.createElement("input");
+      titleInput.className = "panel-title-input";
+      titleInput.value = sub.title;
+      titleInput.placeholder = "Sub-Element title";
+      titleInput.addEventListener("input", () => {
+        sub.title = titleInput.value || "Sub-Element";
+      });
+      controls.appendChild(titleInput);
+      [
+        { t: "↑", d: -1 },
+        { t: "↓", d: 1 },
+      ].forEach((cfg) => {
+        const b = document.createElement("button");
+        b.className = "btn btn-ghost btn-compact";
+        b.type = "button";
+        b.textContent = cfg.t;
+        b.addEventListener("click", () => {
+          moveItem(item.subElements, subIndex, cfg.d);
+        });
+        controls.appendChild(b);
+      });
+      const remove = document.createElement("button");
+      remove.className = "btn btn-danger btn-compact";
+      remove.type = "button";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", () => {
+        item.subElements.splice(subIndex, 1);
+        render();
+      });
+      controls.appendChild(remove);
+      body.appendChild(controls);
+    }
+  });
 
-  body.appendChild(renderWhenField(item, editable));
-
-  body.appendChild(
-    renderField("Meaning", item.meaning, (value) => {
-      item.meaning = value;
-    }, {
-      type: "textarea",
-      editable: editable,
-      className: "half",
-    })
-  );
+  if (editable) {
+    const addSub = document.createElement("button");
+    addSub.className = "btn btn-outline btn-compact span-two";
+    addSub.type = "button";
+    addSub.textContent = "Add Sub-Element";
+    addSub.addEventListener("click", () => {
+      item.subElements.push({ id: createId("subel"), title: "Sub-Element", content: "", visibility: "both" });
+      render();
+    });
+    body.appendChild(addSub);
+  }
 
   const groups = getCalloutGroups();
   body.appendChild(
@@ -3124,16 +3360,6 @@ function renderCalloutCard(item, options = {}) {
         className: "half",
       }
     )
-  );
-
-  body.appendChild(
-    renderField("Expected Outcome", item.responseExpected, (value) => {
-      item.responseExpected = value;
-    }, {
-      type: "text",
-      editable: editable,
-      className: "span-two",
-    })
   );
 
   const calloutVideos = renderVideoSection(item, { panelPadding: false, editable: editable, inCallout: true });
@@ -3181,7 +3407,9 @@ function renderCalloutCard(item, options = {}) {
     deleteBtn.type = "button";
     deleteBtn.textContent = "Delete Element";
     deleteBtn.addEventListener("click", () => {
-      state.callouts = state.callouts.filter((call) => call !== item);
+      const pageCallouts = getPageCallouts();
+      const idx = pageCallouts.indexOf(item);
+      if (idx >= 0) pageCallouts.splice(idx, 1);
       render();
     });
     body.appendChild(deleteBtn);
@@ -3450,7 +3678,7 @@ function getVideoAnchorId(video) {
 
 function getVideoTargets() {
   const targets = [];
-  state.blocks.forEach((block) => {
+  getPageBlocks().forEach((block) => {
     const videos = block.videos || [];
     videos.forEach((video, index) => {
       const title = video.title || `Video ${index + 1}`;
@@ -3472,7 +3700,7 @@ function getVideoTargets() {
       });
     }
   });
-  state.callouts.forEach((callout) => {
+  getPageCallouts().forEach((callout) => {
     const videos = callout.videos || [];
     videos.forEach((video, index) => {
       const title = video.title || `Video ${index + 1}`;
@@ -3486,7 +3714,7 @@ function getVideoTargets() {
 }
 
 function getLegacyTargetLabel(targetId) {
-  const block = state.blocks.find((item) => item.id === targetId);
+  const block = getPageBlocks().find((item) => item.id === targetId);
   if (block) {
     return `Legacy block — ${block.title || "Untitled"}`;
   }
@@ -3498,10 +3726,7 @@ function createBlankCall(groupId) {
     id: createId("callout"),
     callName: "New Element",
     groupId,
-    context: "",
-    meaning: "",
-    whenToUse: "",
-    responseExpected: "",
+    subElements: DEFAULT_SUB_ELEMENTS.map((label) => ({ id: createId("subel"), title: label, content: "" })),
     notes: "",
     importantNote: "",
     visibility: "both",
@@ -3511,16 +3736,16 @@ function createBlankCall(groupId) {
 }
 
 function moveWithinGroup(item, direction) {
-  const groupItems = state.callouts.filter((call) => call.groupId === item.groupId);
+  const groupItems = getPageCallouts().filter((call) => call.groupId === item.groupId);
   const indexInGroup = groupItems.indexOf(item);
   const newIndex = indexInGroup + direction;
   if (newIndex < 0 || newIndex >= groupItems.length) {
     return;
   }
-  const originalIndex = state.callouts.indexOf(item);
+  const originalIndex = getPageCallouts().indexOf(item);
   const swapItem = groupItems[newIndex];
-  const swapIndex = state.callouts.indexOf(swapItem);
-  [state.callouts[originalIndex], state.callouts[swapIndex]] = [state.callouts[swapIndex], state.callouts[originalIndex]];
+  const swapIndex = getPageCallouts().indexOf(swapItem);
+  [getPageCallouts()[originalIndex], getPageCallouts()[swapIndex]] = [getPageCallouts()[swapIndex], getPageCallouts()[originalIndex]];
   render();
 }
 
@@ -3820,6 +4045,7 @@ function buildExportIndexHtml(sourceState) {
         </div>
       </div>
       <div id="headerSocials" class="header-socials"></div>
+      <nav class="page-nav" id="pageNav"></nav>
       <nav class="category-nav" id="categoryNav"></nav>
     </header>
 
@@ -3875,6 +4101,7 @@ function buildOnlineIndexHtml(sourceState) {
         </div>
       </div>
       <div id="headerSocials" class="header-socials"></div>
+      <nav class="page-nav" id="pageNav"></nav>
       <nav class="category-nav" id="categoryNav"></nav>
     </header>
 
@@ -4434,7 +4661,7 @@ function handleImport(file) {
       const parsed = JSON.parse(reader.result);
       if (Array.isArray(parsed)) {
         state = normalizeState(migrateLegacyCallouts(parsed));
-      } else if (parsed && typeof parsed === "object" && Array.isArray(parsed.blocks)) {
+      } else if (parsed && typeof parsed === "object") {
         state = normalizeState(parsed);
       } else {
         throw new Error("Invalid JSON format");
@@ -4460,5 +4687,5 @@ window.addEventListener("resize", () => {
 
 setTheme(activeTheme);
 setViewMode(activeMode);
+syncPageFromHash();
 updateAdminUI();
-render();
