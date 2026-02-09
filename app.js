@@ -727,13 +727,23 @@ function createDefaultHomePage() {
     id: "home",
     title: "Welcome to the spacecombat.gg Training Center",
     subtitle: "Offline-ready doctrine and meta pages for pilots and FPS teams.",
+    heroEnabled: true,
+    heroBackgroundSrc: "",
+    heroColumns: [
+      { id: createId("hero-col"), text: "", mediaType: "", mediaSrc: "" },
+      { id: createId("hero-col"), text: "", mediaType: "", mediaSrc: "" },
+    ],
     heroItems: [createDefaultHeroItem("text")],
     subPages: [
-      { id: "protocol", title: CORE_PAGE_DEFINITIONS.protocol.title, navLabel: CORE_PAGE_DEFINITIONS.protocol.navLabel, backgroundSrc: "", staticSrc: "" },
-      { id: "meta-space", title: CORE_PAGE_DEFINITIONS["meta-space"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-space"].navLabel, backgroundSrc: "", staticSrc: "" },
-      { id: "meta-fps", title: CORE_PAGE_DEFINITIONS["meta-fps"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-fps"].navLabel, backgroundSrc: "", staticSrc: "" },
+      { id: "protocol", title: CORE_PAGE_DEFINITIONS.protocol.title, navLabel: CORE_PAGE_DEFINITIONS.protocol.navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
+      { id: "meta-space", title: CORE_PAGE_DEFINITIONS["meta-space"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-space"].navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
+      { id: "meta-fps", title: CORE_PAGE_DEFINITIONS["meta-fps"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-fps"].navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
     ],
   };
+}
+
+function createDefaultHeroColumn() {
+  return { id: createId("hero-col"), text: "", mediaType: "", mediaSrc: "" };
 }
 
 function createMetaPage(pageId, title) {
@@ -809,6 +819,57 @@ function getPageCallouts() {
 function getHomeSubPages() {
   return Array.isArray(state.home?.subPages) ? state.home.subPages : [];
 }
+function getSubPageEntry(pageId) {
+  return getHomeSubPages().find((entry) => entry.id === pageId);
+}
+
+function setSubPageDisplay(pageId, value) {
+  const next = (value || "").trim() || "Untitled page";
+  const sub = getSubPageEntry(pageId);
+  if (sub) {
+    sub.title = next;
+    sub.navLabel = next;
+  }
+  if (state.pages && state.pages[pageId]) {
+    state.pages[pageId].title = next;
+    state.pages[pageId].hero = state.pages[pageId].hero || { title: next, subtitle: "", items: [createDefaultHeroItem("text")] };
+    if (!state.pages[pageId].hero.title) {
+      state.pages[pageId].hero.title = next;
+    }
+  }
+}
+
+function normalizeHeroColumns(columns) {
+  const source = Array.isArray(columns) ? columns : [];
+  const normalized = source
+    .map((col) => ({
+      id: col?.id || createId("hero-col"),
+      text: typeof col?.text === "string" ? col.text : "",
+      mediaType: col?.mediaType === "image" || col?.mediaType === "video" ? col.mediaType : "",
+      mediaSrc: typeof col?.mediaSrc === "string" ? col.mediaSrc : "",
+    }))
+    .slice(0, 3);
+  while (normalized.length < 2) {
+    normalized.push(createDefaultHeroColumn());
+  }
+  return normalized;
+}
+
+function renderEditableText(tag, value, onChange, options = {}) {
+  const node = document.createElement(tag);
+  node.className = options.className || "";
+  const text = typeof value === "string" && value.length ? value : (options.placeholder || "");
+  node.textContent = text;
+  if (adminMode && options.editable !== false) {
+    node.setAttribute("contenteditable", "true");
+    node.classList.add("click-edit");
+    node.addEventListener("input", () => {
+      onChange(node.textContent || "");
+      if (options.onInput) options.onInput(node.textContent || "");
+    });
+  }
+  return node;
+}
 
 function getPageDefinitionMap() {
   const map = { ...CORE_PAGE_DEFINITIONS };
@@ -819,7 +880,7 @@ function getPageDefinitionMap() {
     map[subPage.id] = {
       id: subPage.id,
       title: subPage.title || subPage.navLabel || "Untitled page",
-      navLabel: subPage.navLabel || subPage.title || "Page",
+      navLabel: subPage.title || subPage.navLabel || "Page",
     };
   });
   return map;
@@ -842,6 +903,7 @@ function ensureHomeSubPages(nextState) {
       navLabel: typeof entry.navLabel === "string" && entry.navLabel.trim() ? entry.navLabel : (typeof entry.title === "string" && entry.title.trim() ? entry.title.trim() : `Page ${index + 1}`),
       backgroundSrc: typeof entry.backgroundSrc === "string" ? entry.backgroundSrc : "",
       staticSrc: typeof entry.staticSrc === "string" ? entry.staticSrc : (typeof entry.backgroundSrc === "string" ? entry.backgroundSrc : ""),
+      mediaType: entry.mediaType === "video" ? "video" : (entry.mediaType === "gif" ? "gif" : "image"),
     }));
   home.subPages = normalized;
   nextState.home = home;
@@ -917,6 +979,9 @@ function normalizeState(source) {
     nextState.home = createDefaultHomePage();
   }
   nextState.home = { ...createDefaultHomePage(), ...nextState.home };
+  if (typeof nextState.home.heroEnabled !== "boolean") nextState.home.heroEnabled = true;
+  if (typeof nextState.home.heroBackgroundSrc !== "string") nextState.home.heroBackgroundSrc = "";
+  nextState.home.heroColumns = normalizeHeroColumns(nextState.home.heroColumns);
   nextState.home.heroItems = normalizeHeroItems(nextState.home.heroItems || []);
   ensureHomeSubPages(nextState);
 
@@ -939,6 +1004,7 @@ function normalizeState(source) {
     if (!nextState.pages[subPage.id]) {
       nextState.pages[subPage.id] = createMetaPage(subPage.id, subPage.title || subPage.navLabel || "New Sub Page");
     }
+    setSubPageDisplay(subPage.id, subPage.title || subPage.navLabel || "New Sub Page");
   });
 
   return nextState;
@@ -1378,12 +1444,9 @@ function renderHeader() {
     eyebrow.textContent = state.header.eyebrow;
     eyebrowRow.appendChild(eyebrow);
 
-    const title = document.createElement("h1");
-    title.textContent = state.header.title;
+    const title = renderEditableText("h1", state.header.title, (value) => { state.header.title = value; }, { className: "header-title" });
 
-    const subhead = document.createElement("p");
-    subhead.className = "subhead";
-    subhead.textContent = state.header.subtitle;
+    const subhead = renderEditableText("p", state.header.subtitle, (value) => { state.header.subtitle = value; }, { className: "subhead" });
 
     const intro = document.createElement("p");
     intro.className = "header-intro";
@@ -1827,6 +1890,16 @@ function renderHeaderSocials() {
 }
 
 function renderHeaderActions() {
+  const headerHomeSlot = document.getElementById("headerHomeSlot");
+  if (headerHomeSlot) {
+    headerHomeSlot.innerHTML = "";
+    const homeLink = document.createElement("a");
+    homeLink.href = "#home";
+    homeLink.className = `btn btn-outline btn-compact${currentPageId === "home" ? " is-active" : ""}`;
+    homeLink.textContent = "Home";
+    headerHomeSlot.appendChild(homeLink);
+  }
+
   if (headerModeToggle) {
     headerModeToggle.innerHTML = "";
     const wrap = document.createElement("div");
@@ -1848,10 +1921,11 @@ function renderHeaderActions() {
 
   if (headerDonateSlot) {
     headerDonateSlot.innerHTML = "";
-    if (state.header.donateEnabled && state.header.donateUrl) {
+    const donateUrl = (state.header.donateUrl || "").trim();
+    if (state.header.donateEnabled && donateUrl) {
       const donateLink = document.createElement("a");
       donateLink.className = "btn btn-outline btn-compact header-donate";
-      donateLink.href = state.header.donateUrl;
+      donateLink.href = donateUrl;
       donateLink.target = "_blank";
       donateLink.rel = "noopener noreferrer";
       donateLink.textContent = "Support";
@@ -2227,7 +2301,7 @@ function renderPageNav() {
   getVisiblePageDefinitions().forEach((page) => {
     const link = document.createElement("a");
     link.href = `#${page.id}`;
-    link.textContent = page.navLabel;
+    link.textContent = page.title || page.navLabel;
     if (page.id === currentPageId) link.classList.add("is-active");
     pageNav.appendChild(link);
   });
@@ -2235,94 +2309,93 @@ function renderPageNav() {
 
 function renderHomePage() {
   const home = state.home;
-  const hero = document.createElement("section");
-  hero.className = "panel home-hero";
-
-  const body = document.createElement("div");
-  body.className = "panel-body home-hero-body";
-  body.appendChild(renderField("Hero title", home.title, (v) => { home.title = v; }, { type: "text", editable: adminMode, className: "span-two" }));
-  body.appendChild(renderField("Hero subtitle", home.subtitle, (v) => { home.subtitle = v; }, { type: "textarea", editable: adminMode, className: "span-two", multilineDisplay: true }));
-
-  const heroItemsWrap = document.createElement("div");
-  heroItemsWrap.className = "home-hero-items span-two";
-  (home.heroItems || []).forEach((item, index) => {
-    const itemCard = document.createElement("div");
-    itemCard.className = "panel home-hero-item";
-    if (item.type === "text") {
-      itemCard.appendChild(renderField(`Text block ${index + 1}`, item.text || "", (v) => { item.text = v; }, { type: "textarea", editable: adminMode, multilineDisplay: true }));
-    } else if (item.type === "image") {
-      if (item.src) {
-        const image = document.createElement("img");
-        image.className = "flow-image";
-        image.src = item.src;
-        image.alt = item.alt || `Hero image ${index + 1}`;
-        itemCard.appendChild(image);
-      }
-      if (adminMode) {
-        itemCard.appendChild(renderField("Image alt", item.alt || "", (v) => { item.alt = v; }, { type: "text", editable: true }));
-        itemCard.appendChild(createImageUploadControl(item.src ? "Replace image" : "Upload image", (src) => { item.src = src; render(); }, item.src ? () => { item.src = ""; render(); } : null));
-      }
-    } else if (item.type === "video") {
-      if (item.src) {
-        const video = document.createElement("video");
-        video.className = "local-video";
-        video.src = item.src;
-        video.controls = true;
-        itemCard.appendChild(video);
-      }
-      if (adminMode) {
-        itemCard.appendChild(createVideoUploadControl(item.src ? "Replace video" : "Upload video", (src) => { item.src = src; render(); }, item.src ? () => { item.src = ""; render(); } : null));
-      }
-    }
-
-    if (adminMode) {
-      const actions = document.createElement("div");
-      actions.className = "block-actions";
-      const up = document.createElement("button");
-      up.className = "btn btn-ghost";
-      up.type = "button";
-      up.textContent = "↑";
-      up.addEventListener("click", () => moveItem(home.heroItems, index, -1));
-      const down = document.createElement("button");
-      down.className = "btn btn-ghost";
-      down.type = "button";
-      down.textContent = "↓";
-      down.addEventListener("click", () => moveItem(home.heroItems, index, 1));
-      const remove = document.createElement("button");
-      remove.className = "btn btn-danger";
-      remove.type = "button";
-      remove.textContent = "Delete";
-      remove.addEventListener("click", () => { home.heroItems.splice(index, 1); if (!home.heroItems.length) home.heroItems.push(createDefaultHeroItem("text")); render(); });
-      actions.appendChild(up);
-      actions.appendChild(down);
-      actions.appendChild(remove);
-      itemCard.appendChild(actions);
-    }
-
-    heroItemsWrap.appendChild(itemCard);
-  });
-  body.appendChild(heroItemsWrap);
 
   if (adminMode) {
-    const heroActions = document.createElement("div");
-    heroActions.className = "home-cta-row";
-    ["text", "image", "video"].forEach((type) => {
-      const btn = document.createElement("button");
-      btn.className = "btn btn-outline";
-      btn.type = "button";
-      btn.textContent = `Add ${type}`;
-      btn.addEventListener("click", () => { home.heroItems.push(createDefaultHeroItem(type)); render(); });
-      heroActions.appendChild(btn);
+    const heroToggle = document.createElement("button");
+    heroToggle.className = "btn btn-outline";
+    heroToggle.type = "button";
+    heroToggle.textContent = home.heroEnabled ? "Remove hero title box" : "Add hero title box";
+    heroToggle.addEventListener("click", () => {
+      home.heroEnabled = !home.heroEnabled;
+      render();
     });
-    body.appendChild(heroActions);
+    blocksContainer.appendChild(heroToggle);
   }
 
-  hero.appendChild(body);
-  blocksContainer.appendChild(hero);
+  if (home.heroEnabled !== false) {
+    const hero = document.createElement("section");
+    hero.className = "panel home-hero home-hero-clean";
+    if (home.heroBackgroundSrc) {
+      hero.classList.add("has-bg");
+      hero.style.setProperty("--home-hero-bg", `url('${home.heroBackgroundSrc}')`);
+    }
+
+    const body = document.createElement("div");
+    body.className = "panel-body home-hero-body";
+    body.appendChild(renderEditableText("h2", home.title, (v) => { home.title = v; }, { className: "hero-title-text", placeholder: "Home title" }));
+    body.appendChild(renderEditableText("p", home.subtitle, (v) => { home.subtitle = v; }, { className: "hero-subtitle-text", placeholder: "Home subtitle" }));
+
+    if (adminMode) {
+      body.appendChild(createImageUploadControl(home.heroBackgroundSrc ? "Replace hero background" : "Upload hero background", (src) => { home.heroBackgroundSrc = src; render(); }, home.heroBackgroundSrc ? () => { home.heroBackgroundSrc = ""; render(); } : null));
+      const splitActions = document.createElement("div");
+      splitActions.className = "home-cta-row";
+      [2, 3].forEach((count) => {
+        const btn = document.createElement("button");
+        btn.className = "btn btn-outline btn-compact";
+        btn.type = "button";
+        btn.textContent = `${count} sections`;
+        btn.addEventListener("click", () => {
+          if (count === 2) {
+            home.heroColumns = normalizeHeroColumns(home.heroColumns).slice(0, 2);
+          } else {
+            const cols = normalizeHeroColumns(home.heroColumns);
+            while (cols.length < 3) cols.push(createDefaultHeroColumn());
+            home.heroColumns = cols.slice(0, 3);
+          }
+          render();
+        });
+        splitActions.appendChild(btn);
+      });
+      body.appendChild(splitActions);
+    }
+
+    const cols = normalizeHeroColumns(home.heroColumns);
+    home.heroColumns = cols;
+    const split = document.createElement("div");
+    split.className = `hero-split hero-split-${cols.length}`;
+    cols.forEach((col, index) => {
+      const colEl = document.createElement("article");
+      colEl.className = "hero-split-col";
+      colEl.appendChild(renderEditableText("p", col.text, (v) => { col.text = v; }, { className: "hero-split-text", placeholder: "Editable text" }));
+      if (col.mediaSrc) {
+        if (col.mediaType === "video") {
+          const video = document.createElement("video");
+          video.className = "local-video";
+          video.src = col.mediaSrc;
+          video.controls = true;
+          colEl.appendChild(video);
+        } else {
+          const img = document.createElement("img");
+          img.className = "flow-image";
+          img.src = col.mediaSrc;
+          img.alt = `Hero section ${index + 1}`;
+          colEl.appendChild(img);
+        }
+      }
+      if (adminMode) {
+        colEl.appendChild(createImageUploadControl("Upload image", (src) => { col.mediaType = "image"; col.mediaSrc = src; render(); }, col.mediaType === "image" && col.mediaSrc ? () => { col.mediaSrc = ""; render(); } : null));
+        colEl.appendChild(createVideoUploadControl("Upload video", (src) => { col.mediaType = "video"; col.mediaSrc = src; render(); }, col.mediaType === "video" && col.mediaSrc ? () => { col.mediaSrc = ""; render(); } : null));
+      }
+      split.appendChild(colEl);
+    });
+    body.appendChild(split);
+    hero.appendChild(body);
+    blocksContainer.appendChild(hero);
+  }
 
   const tiles = document.createElement("section");
   tiles.className = "home-tiles";
-  getHomeSubPages().forEach((subPage) => {
+  getHomeSubPages().forEach((subPage, subIndex) => {
     const id = subPage.id;
     const tile = document.createElement("a");
     tile.className = "panel home-tile";
@@ -2332,47 +2405,75 @@ function renderHomePage() {
       tile.style.setProperty("--tile-bg", `url('${subPage.staticSrc}')`);
       tile.classList.add("has-media");
     }
-    if (subPage.backgroundSrc) {
-      tile.dataset.animatedSrc = subPage.backgroundSrc;
-    }
-    const title = document.createElement("span");
-    title.className = "home-tile-title";
-    title.textContent = tileLabel;
+
+    const title = renderEditableText("span", tileLabel, (value) => {
+      setSubPageDisplay(subPage.id, value);
+      renderPageNav();
+    }, { className: "home-tile-title" });
     tile.appendChild(title);
+
     if (adminMode) {
       const controls = document.createElement("div");
       controls.className = "home-tile-admin";
-      controls.appendChild(createImageUploadControl(subPage.backgroundSrc ? "Replace hover media" : "Upload hover media", (src) => {
-        subPage.backgroundSrc = src;
-        if (!subPage.staticSrc) {
-          subPage.staticSrc = src;
-        }
-        render();
-      }, subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
-      controls.appendChild(createImageUploadControl(subPage.staticSrc ? "Replace static image" : "Upload static image", (src) => {
+      controls.appendChild(createImageUploadControl(subPage.staticSrc ? "Static image" : "Upload static image", (src) => {
+        subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
         subPage.staticSrc = src;
         render();
       }, subPage.staticSrc ? () => { subPage.staticSrc = ""; render(); } : null));
-      const remove = document.createElement("button");
-      remove.className = "btn btn-danger btn-compact";
-      remove.type = "button";
-      remove.textContent = "Delete sub page";
-      remove.addEventListener("click", (event) => {
-        event.preventDefault();
-        delete state.pages[subPage.id];
-        home.subPages = home.subPages.filter((entry) => entry.id !== subPage.id);
+      controls.appendChild(createVideoUploadControl(subPage.backgroundSrc ? "Hover video" : "Upload hover video", (src) => {
+        subPage.mediaType = "video";
+        subPage.backgroundSrc = src;
         render();
-      });
-      controls.appendChild(remove);
+      }, subPage.mediaType === "video" && subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
+      controls.appendChild(createImageUploadControl(subPage.backgroundSrc ? "Hover image/gif" : "Upload hover image/gif", (src) => {
+        subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
+        subPage.backgroundSrc = src;
+        render();
+      }, subPage.mediaType !== "video" && subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
+
+      const row = document.createElement("div");
+      row.className = "tile-inline-actions";
+      const left = document.createElement("button");
+      left.className = "btn btn-ghost btn-compact";
+      left.type = "button";
+      left.textContent = "←";
+      left.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, -1); });
+      const right = document.createElement("button");
+      right.className = "btn btn-ghost btn-compact";
+      right.type = "button";
+      right.textContent = "→";
+      right.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, 1); });
+      row.appendChild(left);
+      row.appendChild(right);
+      controls.appendChild(row);
       tile.appendChild(controls);
     }
+
+    let hoverVideo = null;
+    if (subPage.mediaType === "video" && subPage.backgroundSrc) {
+      hoverVideo = document.createElement("video");
+      hoverVideo.className = "home-tile-hover-video";
+      hoverVideo.src = subPage.backgroundSrc;
+      hoverVideo.muted = true;
+      hoverVideo.loop = true;
+      hoverVideo.playsInline = true;
+      tile.appendChild(hoverVideo);
+    }
+
     tile.addEventListener("mouseenter", () => {
-      if (tile.dataset.animatedSrc) {
-        tile.style.setProperty("--tile-bg", `url('${tile.dataset.animatedSrc}')`);
+      if (hoverVideo) {
+        hoverVideo.style.opacity = "1";
+        hoverVideo.play().catch(() => {});
+      } else if (subPage.backgroundSrc) {
+        tile.style.setProperty("--tile-bg", `url('${subPage.backgroundSrc}')`);
       }
     });
     tile.addEventListener("mouseleave", () => {
-      if (subPage.staticSrc) {
+      if (hoverVideo) {
+        hoverVideo.pause();
+        hoverVideo.currentTime = 0;
+        hoverVideo.style.opacity = "0";
+      } else if (subPage.staticSrc) {
         tile.style.setProperty("--tile-bg", `url('${subPage.staticSrc}')`);
       }
     });
@@ -2388,7 +2489,7 @@ function renderHomePage() {
     addSubPage.addEventListener("click", () => {
       const pageId = createId("sub");
       const title = "New Sub Page";
-      home.subPages.push({ id: pageId, title, navLabel: title, backgroundSrc: "", staticSrc: "" });
+      home.subPages.push({ id: pageId, title, navLabel: title, backgroundSrc: "", staticSrc: "", mediaType: "image" });
       state.pages[pageId] = createMetaPage(pageId, title);
       render();
     });
@@ -3651,27 +3752,12 @@ function renderCalloutCard(item, options = {}) {
   }
 
   item.subElements.forEach((sub, subIndex) => {
-    body.appendChild(
-      renderField(sub.title, sub.content, (value) => {
-        sub.content = value;
-      }, {
-        type: "textarea",
-        editable: editable,
-        className: "half",
-        multilineDisplay: true,
-      })
-    );
+    const field = document.createElement("div");
+    field.className = "field half subelement-field";
+    const head = document.createElement("div");
+    head.className = "subelement-head";
+    head.appendChild(renderEditableText("span", sub.title, (value) => { sub.title = value || "Sub-Element"; }, { className: "subelement-title" }));
     if (editable) {
-      const controls = document.createElement("div");
-      controls.className = "block-actions";
-      const titleInput = document.createElement("input");
-      titleInput.className = "panel-title-input";
-      titleInput.value = sub.title;
-      titleInput.placeholder = "Sub-Element title";
-      titleInput.addEventListener("input", () => {
-        sub.title = titleInput.value || "Sub-Element";
-      });
-      controls.appendChild(titleInput);
       [
         { t: "↑", d: -1 },
         { t: "↓", d: 1 },
@@ -3683,19 +3769,30 @@ function renderCalloutCard(item, options = {}) {
         b.addEventListener("click", () => {
           moveItem(item.subElements, subIndex, cfg.d);
         });
-        controls.appendChild(b);
+        head.appendChild(b);
       });
+    }
+    field.appendChild(head);
+    if (editable) {
+      const control = document.createElement("textarea");
+      control.value = sub.content || "";
+      control.addEventListener("input", () => { sub.content = control.value; });
+      field.appendChild(control);
+    } else {
+      const display = document.createElement("div");
+      display.className = "readonly";
+      display.innerHTML = formatMultilineHtml(sub.content || "");
+      field.appendChild(display);
+    }
+    if (editable) {
       const remove = document.createElement("button");
       remove.className = "btn btn-danger btn-compact";
       remove.type = "button";
       remove.textContent = "Remove";
-      remove.addEventListener("click", () => {
-        item.subElements.splice(subIndex, 1);
-        render();
-      });
-      controls.appendChild(remove);
-      body.appendChild(controls);
+      remove.addEventListener("click", () => { item.subElements.splice(subIndex, 1); render(); });
+      field.appendChild(remove);
     }
+    body.appendChild(field);
   });
 
   if (editable) {

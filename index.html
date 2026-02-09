@@ -16,16 +16,19 @@
               <label for="themeSelect">Theme</label>
               <select id="themeSelect"></select>
             </div>
-            <div id="headerModeToggle" class="mode-toggle"></div>
-            <div id="headerDonateSlot" class="header-donate-slot"></div>
+            <div id="headerNavStack" class="header-nav-stack">
+              <div id="headerHomeSlot" class="header-home-slot"></div>
+              <div id="headerModeToggle" class="mode-toggle"></div>
+              <nav class="page-nav" id="pageNav"></nav>
+              <nav class="category-nav" id="categoryNav"></nav>
+              <div id="headerDonateSlot" class="header-donate-slot"></div>
+            </div>
             <button id="adminToggle" class="btn btn-outline" type="button">Edit</button>
             <div class="status-pill" id="adminStatus">Viewer mode</div>
           </div>
         </div>
       </div>
       <div id="headerSocials" class="header-socials"></div>
-      <nav class="page-nav" id="pageNav"></nav>
-      <nav class="category-nav" id="categoryNav"></nav>
     </header>
 
     <section id="adminBox" class="admin-box panel"></section>

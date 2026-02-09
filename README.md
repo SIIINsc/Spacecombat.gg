@@ -1,49 +1,43 @@
 # spacecombat.gg Training Center (Offline HTML/CSS/JS)
 
-## Multi-page structure
-- Offline stack: `index.html`, `styles.css`, `app.js` (no framework).
-- Hash routing:
-  - `#home`
-  - `#<sub-page-id>` (Protocol, Space Meta, FPS Meta, and any custom sub pages).
-  - `#<sub-page-id>/<block-id>` for jump links.
-- State is stored in localStorage under `scscp_state`.
-- Legacy protocol-only saves are migrated into the current `pages` model automatically.
+## Click-to-edit + ID-based linking
+- In Edit mode, visible titles/labels are editable directly in place (`contenteditable`) instead of only side inputs.
+- Navigation and page references use stable IDs (`page.id`, `block.id`, `subElement.id`) for links and jumps.
+- Display text is synchronized from a single source of truth:
+  - Renaming a sub-page title updates homepage tile title + header website navigation label + page title metadata.
+  - Block jump links continue to work because anchors use IDs, not labels.
 
-## Home vs sub-page admin behavior
-- **Home admin panel** includes full project controls (save/reset/import/export/online build) and full header controls.
-- **Sub-page admin panel** is simplified and page-aware:
-  - Shows block creation controls (Information, Example, Study, Video) and page-local hero controls.
-  - Hides home/global controls like support, online credentials, and header mini-icons.
-- `Export final (viewer-only HTML)` is visible only on Home, because it exports the whole site.
+## Header navigation structure
+The header stack is center-aligned for clarity:
+1. Home button
+2. Basic/Advanced integrated toggle
+3. Website navigation (Home / Protocol / Space Meta / FPS Meta + custom pages)
+4. Sub-page navigation (current page block links, visually smaller)
+5. Donate button (if enabled)
 
-## Hero content modules
-- Home hero and sub-page hero both support modular items:
-  - text blocks
-  - image blocks (base64-friendly)
-  - video blocks (base64-friendly)
-- In Edit mode you can:
-  - add/remove hero items
-  - reorder hero items
-  - edit hero title/subtitle
+## Hero area (homepage)
+- Hero title box can be added/removed in Edit mode.
+- Hero title/subtitle are directly editable without literal helper labels.
+- Hero background image upload is supported (base64/offline).
+- Hero content can be split into 2 or 3 editable sections.
+- Each section supports optional image or video upload.
 
-## Home grid sub-page boxes + GIF hover behavior
-- Home sub-page navigation is a card grid (max 4 cards per row; wraps to next row).
-- Each card supports:
-  - static background image
-  - optional hover media (image or GIF)
-- For GIF-like behavior, use:
-  - **static image** for non-hover state
-  - **hover media** for hover animation state
+## Homepage sub-page boxes + hover media
+- Sub-page cards support editable in-place titles and left/right reordering.
+- Card background media:
+  - static image/gif for default state
+  - optional hover media (image/gif or video)
+- Hover behavior:
+  - video: play on hover, pause/reset on leave
+  - image/gif: switch preview on hover
+
+## Advanced-only indicator
+- Advanced-only items use a minimal border-only distinction (subtle dashed/accent border).
+- No layout redesign or extra badges required.
 
 ## Navigation scroll offset logic
-- Anchor/jump navigation uses a dynamic header offset.
-- Offset is computed from the **current header height**, so targets align directly under the header even when header height changes.
-- Works for:
-  - Home links
-  - Sub-page block links
-  - Hash-based anchor routes
+- Anchor/jump navigation uses dynamic header height offset.
+- Targets align directly below the sticky header even as header height changes.
 
 ## Notes
-- Keep uploads as base64 for fully offline use.
-- Role label colors are the source of truth for Example node coloring.
-- Existing protocol defaults are preserved.
+- Fully offline-friendly: base64 uploads + localStorage state.
