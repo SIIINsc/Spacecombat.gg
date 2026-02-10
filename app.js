@@ -1377,13 +1377,16 @@ function renderHeader() {
   const brand = document.createElement("div");
   brand.className = "header-brand";
 
+  const logoSlot = document.createElement("div");
+  logoSlot.className = "header-logo-slot";
   if (state.header.logoSrc) {
     const logo = document.createElement("img");
     logo.className = "header-logo";
     logo.src = state.header.logoSrc;
     logo.alt = state.header.logoAlt || "Header logo";
-    brand.appendChild(logo);
+    logoSlot.appendChild(logo);
   }
+  brand.appendChild(logoSlot);
 
   const wrapper = document.createElement("div");
   wrapper.className = "header-text";
@@ -2353,7 +2356,7 @@ function renderHomePage() {
     const title = renderEditableText("span", tileLabel, (value) => {
       setSubPageDisplay(subPage.id, value);
       renderPageNav();
-    }, { className: "home-tile-title" });
+    }, { className: "home-tile-title", editable: false });
     tile.appendChild(title);
 
     if (adminMode) {
@@ -4237,20 +4240,20 @@ function buildViewerHtml(sourceState, styles) {
   const headerHtml = `
       <div class="header-main">
         <div class="header-brand">
-          ${logoHtml}
+          <div class="header-logo-slot">${logoHtml}</div>
           <div class="header-text">
-            <div class="header-eyebrow-row">
-              <div class="mode-toggle" id="headerModeToggle">
-                <span class="mode-toggle-label">Basic / Advanced</span>
-                <div class="mode-toggle-buttons">
-                  <button class="mode-btn" type="button" data-mode="basic">Basic</button>
-                  <button class="mode-btn" type="button" data-mode="advanced">Advanced</button>
-                </div>
-              </div>
-            </div>
             <div class="eyebrow header-eyebrow">${escapeHtml(sourceState.header.eyebrow || "Star Citizen")}</div>
-            <h1>${escapeHtml(sourceState.header.title)}</h1>
+            <h1 class="header-title">${escapeHtml(sourceState.header.title)}</h1>
             <p class="subhead header-subtitle-multiline">${escapeHtml(sourceState.header.subtitle)}</p>
+          </div>
+        </div>
+        <div class="mode-toggle" id="headerModeToggle">
+          <div class="mode-toggle-stack">
+            <div class="mode-toggle-buttons">
+              <button class="mode-btn" type="button" data-mode="basic">Basic</button>
+              <button class="mode-btn" type="button" data-mode="advanced">Advanced</button>
+            </div>
+            <a href="#home" class="home-nav-btn">Home</a>
           </div>
         </div>
         <div class="header-controls">
