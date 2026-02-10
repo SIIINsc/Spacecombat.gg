@@ -17,6 +17,7 @@ const ROLE_COLOR_OPTIONS = [
   { label: "Olive", value: "#8d9960" },
 ];
 const ONLINE_BUILD = Boolean(window.__ONLINE_BUILD__);
+const VIEWER_ONLY_BUILD = Boolean(window.__VIEWER_ONLY_BUILD__);
 const ONLINE_AUTH_KEY = "scscp_online_auth";
 const VISIBILITY_OPTIONS = [
   { value: "basic", label: "Basic only" },
@@ -32,15 +33,15 @@ const DEFAULT_SUB_ELEMENTS = [
 
 const CORE_PAGE_DEFINITIONS = {
   home: { id: "home", title: "Home", navLabel: "Home" },
-  protocol: { id: "protocol", title: "Space Combat Communication Protocol", navLabel: "Protocol" },
-  "meta-space": { id: "meta-space", title: "Space Combat Current Meta", navLabel: "Space Meta" },
-  "meta-fps": { id: "meta-fps", title: "FPS Combat Meta", navLabel: "FPS Meta" },
+  protocol: { id: "protocol", title: "Team flight Communication", navLabel: "Team flight Communication" },
+  "meta-space": { id: "meta-space", title: "Ship meta", navLabel: "Ship meta" },
+  "meta-fps": { id: "meta-fps", title: "FPS combat", navLabel: "FPS combat" },
 };
 
 const DEFAULT_STATE = {
   header: {
     eyebrow: "Star Citizen",
-    title: "Space Combat Communication Protocol",
+    title: "Space Combat Learning Platform",
     subtitle: "Concise, standardized call-outs for fast, precise coordination.",
     intro: "Doctrine-grade phrasing for tight, unambiguous team coordination.",
     logoSrc: "",
@@ -61,10 +62,7 @@ const DEFAULT_STATE = {
     { id: "yourself", label: "Yourself", color: "#4cc3ff" },
     { id: "enemyTarget", label: "Enemy target", color: "#ff6b6b" },
   ],
-  onlineAuth: {
-    username: "SIIIN",
-    password: "1111",
-  },
+  onlineAuth: [{ id: "online-auth-default", username: "SIIIN", password: "1111" }],
   footer: {
     lines: ["How to run: open index.html directly in a browser."],
     note: "Viewer/Admin lock is convenience-only because this is a static offline site.",
@@ -647,7 +645,7 @@ function loadState() {
     if (Array.isArray(parsed)) {
       return normalizeState(migrateLegacyCallouts(parsed));
     }
-    if (parsed && typeof parsed === "object" && Array.isArray(parsed.blocks)) {
+    if (parsed && typeof parsed === "object") {
       return normalizeState(parsed);
     }
   } catch (error) {
@@ -729,10 +727,12 @@ function createDefaultHomePage() {
     heroEnabled: true,
     heroBackgroundSrc: "",
     heroColumns: [
-      { id: createId("hero-col"), text: "", mediaType: "", mediaSrc: "" },
-      { id: createId("hero-col"), text: "", mediaType: "", mediaSrc: "" },
+      { id: createId("hero-col"), text: "", mediaItems: [] },
+      { id: createId("hero-col"), text: "", mediaItems: [] },
     ],
     heroItems: [createDefaultHeroItem("text")],
+    blocks: [],
+    callouts: [],
     subPages: [
       { id: "protocol", title: CORE_PAGE_DEFINITIONS.protocol.title, navLabel: CORE_PAGE_DEFINITIONS.protocol.navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
       { id: "meta-space", title: CORE_PAGE_DEFINITIONS["meta-space"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-space"].navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
@@ -742,7 +742,7 @@ function createDefaultHomePage() {
 }
 
 function createDefaultHeroColumn() {
-  return { id: createId("hero-col"), text: "", mediaType: "", mediaSrc: "" };
+  return { id: createId("hero-col"), text: "", mediaItems: [] };
 }
 
 function createMetaPage(pageId, title) {
@@ -806,11 +806,19 @@ function getCurrentPage() {
 }
 
 function getPageBlocks() {
+  if (currentPageId === "home") {
+    state.home.blocks = normalizeBlocks(state.home.blocks || []);
+    return state.home.blocks;
+  }
   const page = getCurrentPage();
   return page ? page.blocks : [];
 }
 
 function getPageCallouts() {
+  if (currentPageId === "home") {
+    state.home.callouts = normalizeCallouts(state.home.callouts || []);
+    return state.home.callouts;
+  }
   const page = getCurrentPage();
   return page ? page.callouts : [];
 }
@@ -838,12 +846,25 @@ function setSubPageDisplay(pageId, value, sourceState = state) {
 function normalizeHeroColumns(columns) {
   const source = Array.isArray(columns) ? columns : [];
   const normalized = source
-    .map((col) => ({
-      id: col?.id || createId("hero-col"),
-      text: typeof col?.text === "string" ? col.text : "",
-      mediaType: col?.mediaType === "image" || col?.mediaType === "video" ? col.mediaType : "",
-      mediaSrc: typeof col?.mediaSrc === "string" ? col.mediaSrc : "",
-    }))
+    .map((col) => {
+      const legacyMedia = col?.mediaSrc
+        ? [{ id: createId("hero-media"), src: col.mediaSrc, linkUrl: "" }]
+        : [];
+      const mediaItems = Array.isArray(col?.mediaItems) && col.mediaItems.length
+        ? col.mediaItems
+            .map((item) => ({
+              id: item?.id || createId("hero-media"),
+              src: typeof item?.src === "string" ? item.src : "",
+              linkUrl: typeof item?.linkUrl === "string" ? item.linkUrl : "",
+            }))
+            .filter((item) => item.src)
+        : legacyMedia;
+      return {
+        id: col?.id || createId("hero-col"),
+        text: typeof col?.text === "string" ? col.text : "",
+        mediaItems,
+      };
+    })
     .slice(0, 3);
   while (normalized.length < 2) {
     normalized.push(createDefaultHeroColumn());
@@ -956,15 +977,21 @@ function normalizeState(source) {
   nextState.ui.theme = resolveThemeName(nextState.ui.theme || "stanton");
   nextState.ui.viewMode = normalizeViewMode(nextState.ui.viewMode || "basic");
   nextState.roleLabels = normalizeRoleLabels(nextState.roleLabels);
-  nextState.onlineAuth = {
-    ...deepClone(DEFAULT_STATE.onlineAuth),
-    ...(nextState.onlineAuth || {}),
-  };
-  if (typeof nextState.onlineAuth.username !== "string") {
-    nextState.onlineAuth.username = DEFAULT_STATE.onlineAuth.username;
-  }
-  if (typeof nextState.onlineAuth.password !== "string") {
-    nextState.onlineAuth.password = DEFAULT_STATE.onlineAuth.password;
+  const defaultAccounts = deepClone(DEFAULT_STATE.onlineAuth);
+  const sourceAuth = Array.isArray(nextState.onlineAuth)
+    ? nextState.onlineAuth
+    : (nextState.onlineAuth && typeof nextState.onlineAuth === "object"
+        ? [nextState.onlineAuth]
+        : defaultAccounts);
+  nextState.onlineAuth = sourceAuth
+    .map((entry) => ({
+      id: entry?.id || createId("online-auth"),
+      username: typeof entry?.username === "string" ? entry.username : "",
+      password: typeof entry?.password === "string" ? entry.password : "",
+    }))
+    .filter((entry) => entry.username || entry.password);
+  if (!nextState.onlineAuth.length) {
+    nextState.onlineAuth = defaultAccounts;
   }
 
   migrateToPages(nextState);
@@ -976,6 +1003,8 @@ function normalizeState(source) {
   if (typeof nextState.home.heroBackgroundSrc !== "string") nextState.home.heroBackgroundSrc = "";
   nextState.home.heroColumns = normalizeHeroColumns(nextState.home.heroColumns);
   nextState.home.heroItems = normalizeHeroItems(nextState.home.heroItems || []);
+  nextState.home.blocks = normalizeBlocks(nextState.home.blocks || []);
+  nextState.home.callouts = normalizeCallouts(nextState.home.callouts || []);
   ensureHomeSubPages(nextState);
 
   Object.values(nextState.pages || {}).forEach((page) => {
@@ -1075,6 +1104,9 @@ function normalizeBlocks(blocks) {
 }
 
 function loadAdmin() {
+  if (VIEWER_ONLY_BUILD) {
+    return false;
+  }
   if (ONLINE_BUILD) {
     return localStorage.getItem(ONLINE_AUTH_KEY) === "true";
   }
@@ -1252,7 +1284,7 @@ function updateAdminUI() {
   }
   if (adminToggle) {
     adminToggle.textContent = adminMode ? "Exit edit" : "Edit";
-    adminToggle.style.display = "inline-flex";
+    adminToggle.style.display = VIEWER_ONLY_BUILD ? "none" : "inline-flex";
   }
   document.body.classList.toggle("admin-active", adminMode);
   if (!adminMode) {
@@ -1298,6 +1330,9 @@ function updateScrollOffset() {
 }
 
 function toggleAdmin() {
+  if (VIEWER_ONLY_BUILD) {
+    return;
+  }
   adminMode = !adminMode;
   localStorage.setItem(ADMIN_KEY, adminMode ? "true" : "false");
   updateAdminUI();
@@ -1352,6 +1387,11 @@ function renderHeader() {
 
   const wrapper = document.createElement("div");
   wrapper.className = "header-text";
+  wrapper.appendChild(
+    renderEditableText("div", state.header.eyebrow, (value) => {
+      state.header.eyebrow = value;
+    }, { className: "eyebrow header-eyebrow", placeholder: "Star Citizen" })
+  );
 
   if (adminMode) {
     wrapper.appendChild(
@@ -1571,27 +1611,48 @@ function renderAdminBox() {
     onlineTitle.textContent = "Online build";
     onlineSection.appendChild(onlineTitle);
 
-    const onlineRow = document.createElement("div");
-    onlineRow.className = "admin-row";
-    const usernameInput = document.createElement("input");
-    usernameInput.type = "text";
-    usernameInput.className = "panel-title-input";
-    usernameInput.placeholder = "Admin username";
-    usernameInput.value = state.onlineAuth.username || "";
-    usernameInput.addEventListener("input", () => {
-      state.onlineAuth.username = usernameInput.value;
+    state.onlineAuth.forEach((account, index) => {
+      const onlineRow = document.createElement("div");
+      onlineRow.className = "admin-row";
+      const usernameInput = document.createElement("input");
+      usernameInput.type = "text";
+      usernameInput.className = "panel-title-input";
+      usernameInput.placeholder = "Admin username";
+      usernameInput.value = account.username || "";
+      usernameInput.addEventListener("input", () => {
+        state.onlineAuth[index].username = usernameInput.value;
+      });
+      const passwordInput = document.createElement("input");
+      passwordInput.type = "password";
+      passwordInput.className = "panel-title-input";
+      passwordInput.placeholder = "Admin password";
+      passwordInput.value = account.password || "";
+      passwordInput.addEventListener("input", () => {
+        state.onlineAuth[index].password = passwordInput.value;
+      });
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "btn btn-danger";
+      removeBtn.type = "button";
+      removeBtn.textContent = "Remove";
+      removeBtn.disabled = state.onlineAuth.length <= 1;
+      removeBtn.addEventListener("click", () => {
+        state.onlineAuth.splice(index, 1);
+        render();
+      });
+      onlineRow.appendChild(usernameInput);
+      onlineRow.appendChild(passwordInput);
+      onlineRow.appendChild(removeBtn);
+      onlineSection.appendChild(onlineRow);
     });
-    const passwordInput = document.createElement("input");
-    passwordInput.type = "password";
-    passwordInput.className = "panel-title-input";
-    passwordInput.placeholder = "Admin password";
-    passwordInput.value = state.onlineAuth.password || "";
-    passwordInput.addEventListener("input", () => {
-      state.onlineAuth.password = passwordInput.value;
+    const addOnlineAccount = document.createElement("button");
+    addOnlineAccount.className = "btn btn-outline";
+    addOnlineAccount.type = "button";
+    addOnlineAccount.textContent = "Add account";
+    addOnlineAccount.addEventListener("click", () => {
+      state.onlineAuth.push({ id: createId("online-auth"), username: "", password: "" });
+      render();
     });
-    onlineRow.appendChild(usernameInput);
-    onlineRow.appendChild(passwordInput);
-    onlineSection.appendChild(onlineRow);
+    onlineSection.appendChild(addOnlineAccount);
 
   }
 
@@ -1621,10 +1682,19 @@ function renderAdminBox() {
     handleExportOnlineZip();
   });
 
+  const onlineViewerOnlyBtn = document.createElement("button");
+  onlineViewerOnlyBtn.className = "btn btn-outline";
+  onlineViewerOnlyBtn.type = "button";
+  onlineViewerOnlyBtn.textContent = "Generate Online Build (Viewer Only)";
+  onlineViewerOnlyBtn.addEventListener("click", () => {
+    handleExportOnlineViewerZip();
+  });
+
   if (isHomePage) {
     actionRow.appendChild(exportZipBtn);
     if (!ONLINE_BUILD) {
       actionRow.appendChild(onlineExportBtn);
+      actionRow.appendChild(onlineViewerOnlyBtn);
     }
   }
   actionSection.appendChild(actionRow);
@@ -1717,9 +1787,7 @@ function renderAdminBox() {
   blockRow.appendChild(addExample);
   blockRow.appendChild(addStudy);
   blockRow.appendChild(addVideo);
-  if (!isHomePage) {
-    actionSection.appendChild(blockRow);
-  }
+  actionSection.appendChild(blockRow);
 
   const note = document.createElement("p");
   note.className = "admin-note";
@@ -1769,6 +1837,8 @@ function renderHeaderActions() {
   }
   if (headerModeToggle) {
     headerModeToggle.innerHTML = "";
+    const stack = document.createElement("div");
+    stack.className = "mode-toggle-stack";
     const wrap = document.createElement("div");
     wrap.className = "mode-toggle-buttons";
     [
@@ -1783,7 +1853,13 @@ function renderHeaderActions() {
       button.addEventListener("click", () => setViewMode(mode.id));
       wrap.appendChild(button);
     });
-    headerModeToggle.appendChild(wrap);
+    const homeBtn = document.createElement("a");
+    homeBtn.href = "#home";
+    homeBtn.className = `home-nav-btn${currentPageId === "home" ? " is-active" : ""}`;
+    homeBtn.textContent = "Home";
+    stack.appendChild(wrap);
+    stack.appendChild(homeBtn);
+    headerModeToggle.appendChild(stack);
   }
 }
 
@@ -1812,7 +1888,7 @@ function createInlineTextarea(kind, value, onChange) {
   const textarea = document.createElement("textarea");
   textarea.value = value || "";
   textarea.className = `inline-input ${kind}`;
-  textarea.rows = 2;
+  textarea.rows = 3;
   textarea.addEventListener("input", () => onChange(textarea.value));
   return textarea;
 }
@@ -1992,7 +2068,7 @@ function renderRuleMedia(section, editable) {
 }
 
 function renderOnlineAdminEntry() {
-  if (!ONLINE_BUILD) {
+  if (!ONLINE_BUILD || VIEWER_ONLY_BUILD) {
     return null;
   }
   const container = document.createElement("div");
@@ -2041,10 +2117,11 @@ function renderOnlineAdminEntry() {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const auth = window.__ONLINE_AUTH__ || state.onlineAuth || DEFAULT_STATE.onlineAuth;
-    const userMatch = userInput.value === auth.username;
-    const passMatch = passInput.value === auth.password;
-    if (userMatch && passMatch) {
+    const authEntries = Array.isArray(window.__ONLINE_AUTH__)
+      ? window.__ONLINE_AUTH__
+      : (Array.isArray(state.onlineAuth) ? state.onlineAuth : DEFAULT_STATE.onlineAuth);
+    const hasMatch = authEntries.some((entry) => userInput.value === entry.username && passInput.value === entry.password);
+    if (hasMatch) {
       adminMode = true;
       localStorage.setItem(ONLINE_AUTH_KEY, "true");
       message.textContent = "";
@@ -2137,9 +2214,13 @@ function renderFooter() {
 
 function renderNav() {
   categoryNav.innerHTML = "";
+  categoryNav.classList.remove("nav-deploy");
   if (currentPageId === "home") {
     return;
   }
+  requestAnimationFrame(() => {
+    categoryNav.classList.add("nav-deploy");
+  });
   getPageBlocks().forEach((block) => {
     const link = document.createElement("a");
     link.href = `#${currentPageId}/${block.id}`;
@@ -2151,7 +2232,7 @@ function renderNav() {
 function renderPageNav() {
   if (!pageNav) return;
   pageNav.innerHTML = "";
-  getVisiblePageDefinitions().forEach((page) => {
+  getVisiblePageDefinitions().filter((page) => page.id !== "home").forEach((page) => {
     const link = document.createElement("a");
     link.href = `#${page.id}`;
     link.textContent = page.title || page.navLabel;
@@ -2198,24 +2279,56 @@ function renderHomePage() {
       const colEl = document.createElement("article");
       colEl.className = "hero-split-col";
       colEl.appendChild(renderEditableText("p", col.text, (v) => { col.text = v; }, { className: "hero-split-text", placeholder: "Editable text", multiline: true }));
-      if (col.mediaSrc) {
-        if (col.mediaType === "video") {
-          const video = document.createElement("video");
-          video.className = "local-video";
-          video.src = col.mediaSrc;
-          video.controls = true;
-          colEl.appendChild(video);
+
+      const mediaWrap = document.createElement("div");
+      mediaWrap.className = "hero-col-media";
+      col.mediaItems = Array.isArray(col.mediaItems) ? col.mediaItems : [];
+      col.mediaItems.forEach((item, itemIndex) => {
+        const card = document.createElement("div");
+        card.className = "hero-col-media-item";
+        const image = document.createElement("img");
+        image.className = "flow-image";
+        image.src = item.src;
+        image.alt = `Hero section ${index + 1}`;
+        if (item.linkUrl) {
+          const link = document.createElement("a");
+          link.href = item.linkUrl;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.appendChild(image);
+          card.appendChild(link);
         } else {
-          const img = document.createElement("img");
-          img.className = "flow-image";
-          img.src = col.mediaSrc;
-          img.alt = `Hero section ${index + 1}`;
-          colEl.appendChild(img);
+          card.appendChild(image);
         }
-      }
+        if (adminMode) {
+          const linkInput = document.createElement("input");
+          linkInput.type = "text";
+          linkInput.className = "panel-title-input";
+          linkInput.placeholder = "Optional image link (https://...)";
+          linkInput.value = item.linkUrl || "";
+          linkInput.addEventListener("input", () => {
+            col.mediaItems[itemIndex].linkUrl = linkInput.value;
+          });
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "btn btn-ghost btn-compact";
+          removeBtn.type = "button";
+          removeBtn.textContent = "Remove image";
+          removeBtn.addEventListener("click", () => {
+            col.mediaItems.splice(itemIndex, 1);
+            render();
+          });
+          card.appendChild(linkInput);
+          card.appendChild(removeBtn);
+        }
+        mediaWrap.appendChild(card);
+      });
+      colEl.appendChild(mediaWrap);
+
       if (adminMode) {
-        colEl.appendChild(createImageUploadControl("Upload image", (src) => { col.mediaType = "image"; col.mediaSrc = src; render(); }, col.mediaType === "image" && col.mediaSrc ? () => { col.mediaSrc = ""; render(); } : null));
-        colEl.appendChild(createVideoUploadControl("Upload video", (src) => { col.mediaType = "video"; col.mediaSrc = src; render(); }, col.mediaType === "video" && col.mediaSrc ? () => { col.mediaSrc = ""; render(); } : null));
+        colEl.appendChild(createImageUploadControl("Add image", (src) => {
+          col.mediaItems.push({ id: createId("hero-media"), src, linkUrl: "" });
+          render();
+        }, null));
       }
       split.appendChild(colEl);
     });
@@ -2250,6 +2363,30 @@ function renderHomePage() {
         event.preventDefault();
         event.stopPropagation();
       });
+
+      const renameWrap = document.createElement("div");
+      renameWrap.className = "image-upload";
+      const renameLabel = document.createElement("label");
+      renameLabel.className = "eyebrow";
+      renameLabel.textContent = "Rename Sub Page";
+      const renameInput = document.createElement("input");
+      renameInput.type = "text";
+      renameInput.className = "panel-title-input";
+      renameInput.value = tileLabel;
+      renameInput.addEventListener("input", () => {
+        setSubPageDisplay(subPage.id, renameInput.value);
+        renderPageNav();
+        renderHeaderActions();
+      });
+      renameWrap.appendChild(renameLabel);
+      renameWrap.appendChild(renameInput);
+      controls.appendChild(renameWrap);
+
+      controls.appendChild(createImageUploadControl(subPage.backgroundSrc ? "Hover image" : "Upload hover image", (src) => {
+        subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
+        subPage.backgroundSrc = src;
+        render();
+      }, subPage.mediaType !== "video" && subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
       controls.appendChild(createImageUploadControl(subPage.staticSrc ? "Static image" : "Upload static image", (src) => {
         subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
         subPage.staticSrc = src;
@@ -2260,11 +2397,6 @@ function renderHomePage() {
         subPage.backgroundSrc = src;
         render();
       }, subPage.mediaType === "video" && subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
-      controls.appendChild(createImageUploadControl(subPage.backgroundSrc ? "Hover image/gif" : "Upload hover image/gif", (src) => {
-        subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
-        subPage.backgroundSrc = src;
-        render();
-      }, subPage.mediaType !== "video" && subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
 
       const row = document.createElement("div");
       row.className = "tile-inline-actions";
@@ -2332,6 +2464,24 @@ function renderHomePage() {
     });
     blocksContainer.appendChild(addSubPage);
   }
+
+  getPageBlocks().forEach((block, index) => {
+    if (block.type === "rules") {
+      blocksContainer.appendChild(renderRulesBlock(block, index));
+      return;
+    }
+    if (block.type === "flows") {
+      blocksContainer.appendChild(renderFlowsBlock(block, index));
+      return;
+    }
+    if (block.type === "calloutGroup") {
+      blocksContainer.appendChild(renderCalloutGroupBlock(block, index));
+      return;
+    }
+    if (block.type === "video") {
+      blocksContainer.appendChild(renderVideoBlock(block, index));
+    }
+  });
 }
 
 function render() {
@@ -2348,6 +2498,7 @@ function render() {
     renderHomePage();
     updateScrollOffset();
     scrollToHashTarget();
+    saveState();
     return;
   }
 
@@ -2376,6 +2527,7 @@ function render() {
     window.scrollTo(0, pendingScrollY);
     pendingScrollY = null;
   }
+  saveState();
 }
 
 function renderRulesBlock(block, index) {
@@ -3999,6 +4151,7 @@ async function handleExportHtml() {
 }
 
 async function handleExportZip() {
+  saveState();
   const [styles, script] = await Promise.all([getStylesheetText(), getScriptText()]);
   const indexHtml = buildExportIndexHtml(state);
   const readme = buildExportReadme(state);
@@ -4020,6 +4173,7 @@ async function handleExportZip() {
 }
 
 async function handleExportOnlineZip() {
+  saveState();
   const [styles, script] = await Promise.all([getStylesheetText(), getScriptText()]);
   const indexHtml = buildOnlineIndexHtml(state);
   const readme = buildOnlineReadme(state);
@@ -4034,6 +4188,28 @@ async function handleExportOnlineZip() {
   const link = document.createElement("a");
   link.href = url;
   link.download = "scscp-online-build.zip";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function handleExportOnlineViewerZip() {
+  saveState();
+  const [styles, script] = await Promise.all([getStylesheetText(), getScriptText()]);
+  const indexHtml = buildOnlineViewerIndexHtml(state);
+  const readme = buildOnlineViewerReadme();
+  const files = [
+    { name: "index.html", content: indexHtml },
+    { name: "styles.css", content: styles },
+    { name: "app.js", content: script },
+    { name: "README.md", content: readme },
+  ];
+  const zipBlob = createZipBlob(files);
+  const url = URL.createObjectURL(zipBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "scscp-online-viewer-build.zip";
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -4072,6 +4248,7 @@ function buildViewerHtml(sourceState, styles) {
                 </div>
               </div>
             </div>
+            <div class="eyebrow header-eyebrow">${escapeHtml(sourceState.header.eyebrow || "Star Citizen")}</div>
             <h1>${escapeHtml(sourceState.header.title)}</h1>
             <p class="subhead header-subtitle-multiline">${escapeHtml(sourceState.header.subtitle)}</p>
           </div>
@@ -4242,11 +4419,11 @@ function buildExportIndexHtml(sourceState) {
         <div id="headerModeToggle" class="mode-toggle"></div>
         <div class="header-controls">
           <div class="header-actions">
+            <button id="adminToggle" class="btn btn-outline" type="button">Edit</button>
             <div class="theme-control">
               <label for="themeSelect">Theme</label>
               <select id="themeSelect"></select>
             </div>
-            <button id="adminToggle" class="btn btn-outline" type="button">Edit</button>
             <div class="status-pill" id="adminStatus">Viewer mode</div>
           </div>
         </div>
@@ -4282,10 +4459,9 @@ function buildOnlineIndexHtml(sourceState) {
       theme: activeTheme,
     },
   };
-  const auth = {
-    username: sourceState.onlineAuth?.username || DEFAULT_STATE.onlineAuth.username,
-    password: sourceState.onlineAuth?.password || DEFAULT_STATE.onlineAuth.password,
-  };
+  const auth = Array.isArray(sourceState.onlineAuth) && sourceState.onlineAuth.length
+    ? sourceState.onlineAuth
+    : deepClone(DEFAULT_STATE.onlineAuth);
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -4327,6 +4503,59 @@ function buildOnlineIndexHtml(sourceState) {
       window.__EXPORTED_STATE__ = ${JSON.stringify(exportedState)};
       window.__ONLINE_BUILD__ = true;
       window.__ONLINE_AUTH__ = ${JSON.stringify(auth)};
+    </script>
+    <script src="app.js"></script>
+  </body>
+</html>`;
+}
+
+function buildOnlineViewerIndexHtml(sourceState) {
+  const exportedState = {
+    ...sourceState,
+    ui: {
+      ...(sourceState.ui || {}),
+      theme: activeTheme,
+    },
+  };
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(exportedState.header.title)}</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-main">
+        <div id="headerContent"></div>
+        <div id="headerModeToggle" class="mode-toggle"></div>
+        <div class="header-controls">
+          <div class="header-actions">
+            <div class="theme-control">
+              <label for="themeSelect">Theme</label>
+              <select id="themeSelect"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="headerSocials" class="header-socials"></div>
+      <div class="header-navs">
+        <nav class="page-nav" id="pageNav"></nav>
+        <nav class="category-nav" id="categoryNav"></nav>
+      </div>
+    </header>
+
+    <main id="blocksContainer"></main>
+
+    <footer class="site-footer">
+      <div id="footerContent"></div>
+    </footer>
+
+    <script>
+      window.__EXPORTED_STATE__ = ${JSON.stringify(exportedState)};
+      window.__ONLINE_BUILD__ = true;
+      window.__VIEWER_ONLY_BUILD__ = true;
     </script>
     <script src="app.js"></script>
   </body>
@@ -4379,11 +4608,22 @@ function buildOnlineReadme(sourceState) {
 3. Use the subtle admin link at the bottom of the page to log in and enable edit mode.
 
 ## Admin credentials
-- Username: \`${escapeHtml(sourceState.onlineAuth?.username || DEFAULT_STATE.onlineAuth.username)}\`
-- Password: \`${escapeHtml(sourceState.onlineAuth?.password || DEFAULT_STATE.onlineAuth.password)}\`
+- Any configured pair in HOME Admin → Online build accounts is valid.
 
 ## Security note
 This is a static site, so the login gate is **client-side only** and not real security. For production, use server-side protection such as basic auth/htpasswd or platform password protection.`;
+}
+
+function buildOnlineViewerReadme() {
+  return `# Space Combat Communication Protocol Online Viewer Build
+
+## Overview
+- This build is viewer-only and has no login, edit, or admin features.
+- Host as static files or open \`index.html\` directly.
+
+## Notes
+- Theme switcher and content navigation remain available.
+- The state snapshot reflects the current saved editor content at export time.`;
 }
 
 function createZipBlob(files) {
