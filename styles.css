@@ -1520,3 +1520,221 @@ input[type="file"] {
   .ship-meta-subbox-grid { grid-template-columns: 1fr; }
   .ship-meta-signatures-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* 2026-02 compact header + containment updates */
+:root {
+  --bg: #0c1017;
+  --panel: #151b25;
+  --panel-elev: #1b2432;
+  --line: #2a3547;
+  --accent: #68b4db;
+  --accent-strong: #8fc7e7;
+}
+
+main, .panel, .panel-body, .flow-card, .rule-card, .ship-meta-subbox, .callout-card, .callout-body {
+  min-width: 0;
+}
+
+.panel-header {
+  padding: 0.45rem 0.9rem;
+  border-bottom: 1px solid rgba(42, 53, 71, 0.85);
+  background: transparent;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.panel-header h2,
+.panel-header .panel-title-input {
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.block-title-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.block-context {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.rules-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.rule-card {
+  overflow: hidden;
+}
+
+.rule-card .rule-body p,
+.rule-card textarea,
+.flow-editor-item input,
+.flow-editor-item select,
+.ship-meta-subbox input,
+.ship-meta-subbox textarea {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.flow-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.flow-card,
+.flow-editor-panel,
+.flow-editor-row,
+.flow-editor-item {
+  width: 100%;
+  max-width: 100%;
+}
+
+.flow-editor-panel {
+  overflow: auto;
+}
+
+.flow-editor-item {
+  grid-template-columns: minmax(90px, 1fr) minmax(120px, 1.4fr) minmax(110px, 1fr) auto;
+}
+
+.role-labels-editor {
+  padding: 0.35rem;
+  gap: 0.35rem;
+}
+
+.role-labels-editor-inline {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.role-labels-editor-inline .role-labels-title,
+.role-labels-editor-inline .btn {
+  display: none;
+}
+
+.role-labels-editor-inline .role-label-row {
+  grid-template-columns: minmax(95px, 120px) auto minmax(80px, 110px) auto;
+  gap: 0.25rem;
+}
+
+.role-labels-editor-inline .panel-title-input,
+.role-labels-editor-inline .role-color-select,
+.role-labels-editor-inline .btn {
+  font-size: 0.68rem;
+  padding: 0.2rem 0.3rem;
+}
+
+.flow-subbox-actions .btn,
+.block-actions .btn,
+.tile-inline-actions .btn {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.68rem;
+}
+
+.ship-meta-subbox {
+  overflow: hidden;
+  background-image: linear-gradient(rgba(24, 34, 51, 0.84), rgba(24, 34, 51, 0.88)), var(--ship-meta-bg);
+  background-size: cover;
+  background-position: center;
+}
+
+.ship-meta-compact-title {
+  font-size: 0.82rem;
+  gap: 0.2rem;
+}
+
+.ship-meta-separator {
+  opacity: 0.65;
+}
+
+.ship-meta-components-list,
+.ship-meta-signatures-compact {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.ship-meta-component-row-compact {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.7fr) minmax(90px, 1fr) minmax(90px, 1fr);
+  align-items: center;
+}
+
+.ship-meta-signatures-compact {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.ship-meta-signatures-compact .field label {
+  font-size: 0.56rem;
+}
+
+.ship-meta-signatures-compact .field input,
+.ship-meta-signatures-compact .field .readonly {
+  font-size: 0.72rem;
+}
+
+.home-tile-controls-strip {
+  max-width: calc(100% - 0.8rem);
+}
+
+.site-header {
+  padding-top: 0.35rem;
+  padding-bottom: 0.45rem;
+}
+
+.header-main {
+  align-items: start;
+}
+
+.header-brand {
+  align-items: start;
+}
+
+.header-brand:has(.header-logo-slot:empty),
+.header-brand.no-logo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.header-socials {
+  position: static;
+  margin-top: 0.2rem;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.header-navs {
+  margin-top: 0.2rem;
+  gap: 0.2rem;
+  justify-items: stretch;
+}
+
+.category-nav-band {
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+
+.category-nav,
+.page-nav {
+  justify-content: flex-start;
+}
+
+@media (max-width: 1200px) {
+  .rules-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ship-meta-signatures-compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .rules-grid,
+  .flow-grid,
+  .ship-meta-subbox-grid,
+  .ship-meta-signatures-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ship-meta-component-row-compact { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .rules-grid,
+  .flow-grid,
+  .ship-meta-subbox-grid,
+  .ship-meta-signatures-compact { grid-template-columns: 1fr; }
+}

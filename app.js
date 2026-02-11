@@ -718,11 +718,11 @@ function createBlankInfoBlock() {
         title: "New Information Sub-Box",
         subtitle: "",
         body: "",
-        note: "",
         mediaType: "",
         mediaSrc: "",
         mediaVideoType: "local",
         backgroundSrc: "",
+        visibility: "both",
       },
     ],
   };
@@ -739,19 +739,26 @@ function createBlankShipMetaBlock() {
 }
 
 function createBlankShipMetaItem() {
+  const createModeData = () => ({
+    components: [
+      { id: createId("ship-component"), key: "weapon", component: "", whereToBuy: "" },
+      { id: createId("ship-component"), key: "shield", component: "", whereToBuy: "" },
+      { id: createId("ship-component"), key: "powerplant", component: "", whereToBuy: "" },
+      { id: createId("ship-component"), key: "cooler", component: "", whereToBuy: "" },
+    ],
+    signatures: { em: "", ir: "", crossSection: "", sustainedDps: "", alphaDamage: "" },
+    summary: "",
+  });
   return {
     id: createId("ship-meta-item"),
     shipName: "",
     roleTagline: "",
-    components: [
-      { id: createId("ship-component"), icon: "shield", component: "", buyable: true },
-      { id: createId("ship-component"), icon: "powerplant", component: "", buyable: true },
-      { id: createId("ship-component"), icon: "cooler", component: "", buyable: true },
-      { id: createId("ship-component"), icon: "weapon", component: "", buyable: true },
-    ],
-    signatures: { em: "", ir: "", crossSection: { front: "", side: "", top: "" } },
-    coolingBars: 1,
-    summary: "",
+    backgroundSrc: "",
+    activeMode: "premium",
+    modes: {
+      premium: createModeData(),
+      pu: createModeData(),
+    },
   };
 }
 
@@ -779,14 +786,14 @@ function createDefaultHomePage() {
     id: "home",
     title: "Welcome to the spacecombat.gg Training Center",
     subtitle: "Offline-ready doctrine and meta pages for pilots and FPS teams.",
-    heroEnabled: true,
+    heroEnabled: false,
     heroBackgroundSrc: "",
     heroColumns: [
       { id: createId("hero-col"), text: "", mediaItems: [] },
       { id: createId("hero-col"), text: "", mediaItems: [] },
     ],
     heroItems: [createDefaultHeroItem("text")],
-    blocks: [],
+    blocks: [createBlankInfoBlock()],
     callouts: [],
     subPages: [
       { id: "protocol", title: CORE_PAGE_DEFINITIONS.protocol.title, navLabel: CORE_PAGE_DEFINITIONS.protocol.navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
@@ -1132,11 +1139,11 @@ function normalizeBlocks(blocks) {
         title: section.title || "New Information Sub-Box",
         subtitle: section.subtitle || "",
         body: section.body || (Array.isArray(section.items) ? section.items.join("\n") : ""),
-        note: section.note || "",
         mediaType: section.mediaType || "",
         mediaSrc: section.mediaSrc || "",
         mediaVideoType: section.mediaVideoType || "local",
         backgroundSrc: typeof section.backgroundSrc === "string" ? section.backgroundSrc : "",
+        visibility: normalizeVisibility(section.visibility || "both"),
       }));
     }
     if (block.type === "flows") {
@@ -1166,33 +1173,56 @@ function normalizeBlocks(blocks) {
         summary: typeof block.summary === "string" ? block.summary : "",
       };
       const sourceItems = Array.isArray(block.metaItems) && block.metaItems.length ? block.metaItems : [legacyItem];
-      const defaultItem = createBlankShipMetaItem();
+      const componentKeys = ["weapon", "shield", "powerplant", "cooler"];
+      const normalizeModeData = (modeSource, fallbackSource) => {
+        const base = modeSource || fallbackSource || {};
+        const signatures = base.signatures || {};
+        const cross = signatures.crossSection || {};
+        const legacyCross = [cross.front, cross.side, cross.top].filter(Boolean).join(" / ");
+        const defaultComponents = createBlankShipMetaItem().modes.premium.components;
+        const sourceComponents = Array.isArray(base.components) && base.components.length
+          ? base.components
+          : Array.isArray(fallbackSource?.components) && fallbackSource.components.length
+            ? fallbackSource.components
+            : defaultComponents;
+        return {
+          components: componentKeys.map((key, idx) => {
+            const legacy = sourceComponents[idx] || sourceComponents.find((entry) => inferShipComponentIcon(entry?.slot || entry?.icon) === key) || {};
+            return {
+              id: legacy.id || createId("ship-component"),
+              key,
+              component: typeof legacy.component === "string" ? legacy.component : "",
+              whereToBuy: typeof legacy.whereToBuy === "string" ? legacy.whereToBuy : "",
+            };
+          }),
+          signatures: {
+            em: typeof signatures.em === "number" || typeof signatures.em === "string" ? signatures.em : "",
+            ir: typeof signatures.ir === "number" || typeof signatures.ir === "string" ? signatures.ir : "",
+            crossSection: typeof signatures.crossSection === "string" ? signatures.crossSection : legacyCross,
+            sustainedDps: typeof signatures.sustainedDps === "number" || typeof signatures.sustainedDps === "string" ? signatures.sustainedDps : "",
+            alphaDamage: typeof signatures.alphaDamage === "number" || typeof signatures.alphaDamage === "string" ? signatures.alphaDamage : "",
+          },
+          summary: typeof base.summary === "string" ? base.summary : "",
+        };
+      };
       block.metaItems = sourceItems.map((item) => {
-        const cross = item?.signatures?.crossSection || {};
-        const defaultComponents = createBlankShipMetaItem().components;
+        const legacyMode = {
+          components: item?.components,
+          signatures: item?.signatures,
+          summary: item?.summary,
+        };
+        const premiumSource = item?.modes?.premium || item?.premium || legacyMode;
+        const puSource = item?.modes?.pu || item?.pu || legacyMode;
         return {
           id: item?.id || createId("ship-meta-item"),
           shipName: typeof item?.shipName === "string" ? item.shipName : "",
           roleTagline: typeof item?.roleTagline === "string" ? item.roleTagline : "",
-          components: (Array.isArray(item?.components) && item.components.length ? item.components : defaultComponents).map((entry, index) => ({
-            id: entry?.id || createId("ship-component"),
-            icon: ["weapon", "powerplant", "shield", "cooler"].includes(entry?.icon)
-              ? entry.icon
-              : inferShipComponentIcon(entry?.slot || defaultComponents[index]?.icon || "weapon"),
-            component: typeof entry?.component === "string" ? entry.component : "",
-            buyable: typeof entry?.buyable === "boolean" ? entry.buyable : true,
-          })),
-          signatures: {
-            em: Number.isFinite(Number(item?.signatures?.em)) ? Number(item.signatures.em) : (typeof item?.signatures?.em === "string" ? item.signatures.em : ""),
-            ir: Number.isFinite(Number(item?.signatures?.ir)) ? Number(item.signatures.ir) : (typeof item?.signatures?.ir === "string" ? item.signatures.ir : ""),
-            crossSection: {
-              front: Number.isFinite(Number(cross.front)) ? Number(cross.front) : (typeof cross.front === "string" ? cross.front : ""),
-              side: Number.isFinite(Number(cross.side)) ? Number(cross.side) : (typeof cross.side === "string" ? cross.side : ""),
-              top: Number.isFinite(Number(cross.top)) ? Number(cross.top) : (typeof cross.top === "string" ? cross.top : ""),
-            },
+          backgroundSrc: typeof item?.backgroundSrc === "string" ? item.backgroundSrc : "",
+          activeMode: item?.activeMode === "pu" ? "pu" : "premium",
+          modes: {
+            premium: normalizeModeData(premiumSource, legacyMode),
+            pu: normalizeModeData(puSource, legacyMode),
           },
-          coolingBars: Math.max(0, Math.min(6, Number(item?.coolingBars) || 1)),
-          summary: typeof item?.summary === "string" ? item.summary : defaultItem.summary,
         };
       });
     }
@@ -1476,7 +1506,7 @@ function renderHeader() {
     }
   }
   const brand = document.createElement("div");
-  brand.className = "header-brand";
+  brand.className = `header-brand${state.header.logoSrc ? "" : " no-logo"}`;
 
   const logoSlot = document.createElement("div");
   logoSlot.className = "header-logo-slot";
@@ -2345,6 +2375,7 @@ function renderNav() {
 function renderPageNav() {
   if (!pageNav) return;
   pageNav.innerHTML = "";
+  if (currentPageId === "home") return;
   pageNav.classList.remove("nav-deploy");
   if (shouldAnimateNavDeploy) {
     requestAnimationFrame(() => pageNav.classList.add("nav-deploy"));
@@ -2362,97 +2393,8 @@ function renderPageNav() {
 function renderHomePage() {
   const home = state.home;
 
-  if (adminMode) {
-    const heroToggle = document.createElement("button");
-    heroToggle.className = "btn btn-outline";
-    heroToggle.type = "button";
-    heroToggle.textContent = home.heroEnabled ? "Remove hero title box" : "Add hero title box";
-    heroToggle.addEventListener("click", () => {
-      home.heroEnabled = !home.heroEnabled;
-      render();
-    });
-    blocksContainer.appendChild(heroToggle);
-  }
-
-  if (home.heroEnabled !== false) {
-    const hero = document.createElement("section");
-    hero.className = "panel home-hero home-hero-clean";
-    if (home.heroBackgroundSrc) {
-      hero.classList.add("has-bg");
-      hero.style.setProperty("--home-hero-bg", `url('${home.heroBackgroundSrc}')`);
-    }
-
-    const body = document.createElement("div");
-    body.className = "panel-body home-hero-body";
-    body.appendChild(renderEditableText("h2", home.title, (v) => { home.title = v; }, { className: "hero-title-text", placeholder: "Home title" }));
-    if (adminMode) {
-      body.appendChild(createImageUploadControl(home.heroBackgroundSrc ? "Replace hero background" : "Upload hero background", (src) => { home.heroBackgroundSrc = src; render(); }, home.heroBackgroundSrc ? () => { home.heroBackgroundSrc = ""; render(); } : null));
-    }
-
-    const cols = normalizeHeroColumns(home.heroColumns).slice(0, 2);
-    home.heroColumns = cols;
-    const split = document.createElement("div");
-    split.className = `hero-split hero-split-${cols.length}`;
-    cols.forEach((col, index) => {
-      const colEl = document.createElement("article");
-      colEl.className = "hero-split-col";
-      colEl.appendChild(renderEditableText("p", col.text, (v) => { col.text = v; }, { className: "hero-split-text", placeholder: "Editable text", multiline: true }));
-
-      const mediaWrap = document.createElement("div");
-      mediaWrap.className = "hero-col-media";
-      col.mediaItems = Array.isArray(col.mediaItems) ? col.mediaItems : [];
-      col.mediaItems.forEach((item, itemIndex) => {
-        const card = document.createElement("div");
-        card.className = "hero-col-media-item";
-        const image = document.createElement("img");
-        image.className = "flow-image";
-        image.src = item.src;
-        image.alt = `Hero section ${index + 1}`;
-        if (item.linkUrl) {
-          const link = document.createElement("a");
-          link.href = item.linkUrl;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.appendChild(image);
-          card.appendChild(link);
-        } else {
-          card.appendChild(image);
-        }
-        if (adminMode) {
-          const linkInput = document.createElement("input");
-          linkInput.type = "text";
-          linkInput.className = "panel-title-input";
-          linkInput.placeholder = "Optional image link (https://...)";
-          linkInput.value = item.linkUrl || "";
-          linkInput.addEventListener("input", () => {
-            col.mediaItems[itemIndex].linkUrl = linkInput.value;
-          });
-          const removeBtn = document.createElement("button");
-          removeBtn.className = "btn btn-ghost btn-compact";
-          removeBtn.type = "button";
-          removeBtn.textContent = "Remove image";
-          removeBtn.addEventListener("click", () => {
-            col.mediaItems.splice(itemIndex, 1);
-            render();
-          });
-          card.appendChild(linkInput);
-          card.appendChild(removeBtn);
-        }
-        mediaWrap.appendChild(card);
-      });
-      colEl.appendChild(mediaWrap);
-
-      if (adminMode) {
-        colEl.appendChild(createImageUploadControl("Add image", (src) => {
-          col.mediaItems.push({ id: createId("hero-media"), src, linkUrl: "" });
-          render();
-        }, null));
-      }
-      split.appendChild(colEl);
-    });
-    body.appendChild(split);
-    hero.appendChild(body);
-    blocksContainer.appendChild(hero);
+  if (!Array.isArray(home.blocks) || !home.blocks.length) {
+    home.blocks = [createBlankInfoBlock()];
   }
 
   const tiles = document.createElement("section");
@@ -2461,9 +2403,8 @@ function renderHomePage() {
     const id = subPage.id;
     const tile = document.createElement(adminMode ? "article" : "a");
     tile.className = "panel home-tile";
-    if (!adminMode) {
-      tile.href = `#${id}`;
-    }
+    if (!adminMode) tile.href = `#${id}`;
+
     const tileLabel = subPage.title || subPage.navLabel || "Untitled page";
     if (subPage.staticSrc) {
       tile.style.setProperty("--tile-bg", `url('${subPage.staticSrc}')`);
@@ -2504,18 +2445,18 @@ function renderHomePage() {
       openBtn.textContent = "Open";
       topRow.appendChild(openBtn);
 
-      const left = document.createElement("button");
-      left.className = "btn btn-ghost btn-compact";
-      left.type = "button";
-      left.textContent = "←";
-      left.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, -1); });
-      const right = document.createElement("button");
-      right.className = "btn btn-ghost btn-compact";
-      right.type = "button";
-      right.textContent = "→";
-      right.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, 1); });
-      topRow.appendChild(left);
-      topRow.appendChild(right);
+      const moveUp = document.createElement("button");
+      moveUp.className = "btn btn-ghost btn-compact";
+      moveUp.type = "button";
+      moveUp.textContent = "↑";
+      moveUp.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, -1); });
+      const moveDown = document.createElement("button");
+      moveDown.className = "btn btn-ghost btn-compact";
+      moveDown.type = "button";
+      moveDown.textContent = "↓";
+      moveDown.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, 1); });
+      topRow.appendChild(moveUp);
+      topRow.appendChild(moveDown);
       controls.appendChild(topRow);
 
       const renameWrap = document.createElement("div");
@@ -2528,7 +2469,7 @@ function renderHomePage() {
       renameInput.className = "panel-title-input";
       renameInput.value = tileLabel;
       renameInput.addEventListener("input", () => {
-        setSubPageDisplay(subPage.id, renameInput.value);
+        setSubPageDisplay(subPage.id, renameInput.value || "Untitled page");
         title.textContent = renameInput.value || "Untitled page";
         renderPageNav();
         renderHeaderActions();
@@ -2537,19 +2478,19 @@ function renderHomePage() {
       renameWrap.appendChild(renameInput);
       controls.appendChild(renameWrap);
 
-      controls.appendChild(createImageUploadControl(subPage.staticSrc ? "Static background" : "Upload static background", (src) => {
+      controls.appendChild(createImageUploadControl(subPage.staticSrc ? "Replace static background" : "Upload static background", (src) => {
         subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
         subPage.staticSrc = src;
         render();
       }, subPage.staticSrc ? () => { subPage.staticSrc = ""; render(); } : null));
 
-      controls.appendChild(createImageUploadControl(subPage.backgroundSrc && subPage.mediaType !== "video" ? "Hover image / gif" : "Upload hover image / gif", (src) => {
+      controls.appendChild(createImageUploadControl(subPage.backgroundSrc && subPage.mediaType !== "video" ? "Replace hover media" : "Upload hover image / gif", (src) => {
         subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
         subPage.backgroundSrc = src;
         render();
       }, subPage.mediaType !== "video" && subPage.backgroundSrc ? () => { subPage.backgroundSrc = ""; render(); } : null));
 
-      controls.appendChild(createVideoUploadControl(subPage.backgroundSrc && subPage.mediaType === "video" ? "Hover video" : "Upload hover video", (src) => {
+      controls.appendChild(createVideoUploadControl(subPage.backgroundSrc && subPage.mediaType === "video" ? "Replace hover video" : "Upload hover video", (src) => {
         subPage.mediaType = "video";
         subPage.backgroundSrc = src;
         render();
@@ -2625,7 +2566,6 @@ function renderHomePage() {
     }
     if (block.type === "shipMeta") {
       blocksContainer.appendChild(renderShipMetaBlock(block, index));
-      return;
     }
   });
 }
@@ -2695,20 +2635,18 @@ function renderRulesBlock(block, index) {
   section.dataset.title = block.title || "Information Box";
   const editing = isBlockEditing(block.id);
 
-  if (adminMode) {
-    const header = document.createElement("div");
-    header.className = "panel-header";
-    header.appendChild(renderBlockTitle(block, "h2", editing));
-    header.appendChild(renderBlockActions(block, index, editing));
-    section.appendChild(header);
-  }
+  const header = document.createElement("div");
+  header.className = "panel-header";
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  header.appendChild(renderBlockActions(block, index, editing));
+  section.appendChild(header);
 
   const body = document.createElement("div");
   body.className = "panel-body rules-grid";
 
   block.sections.forEach((rulesSection, sectionIndex) => {
     const card = document.createElement("div");
-    card.className = "rule-card";
+    card.className = `rule-card ${getVisibilityClass(rulesSection.visibility)}`;
     if (rulesSection.backgroundSrc) {
       card.classList.add("has-bg");
       card.style.setProperty("--rule-bg", `url('${rulesSection.backgroundSrc}')`);
@@ -2723,6 +2661,19 @@ function renderRulesBlock(block, index) {
         rulesSection.title = titleInput.value;
       });
       card.appendChild(titleInput);
+
+      card.appendChild(
+        renderSelect(
+          "Visibility",
+          rulesSection.visibility,
+          VISIBILITY_OPTIONS,
+          (value) => {
+            rulesSection.visibility = value;
+            render();
+          },
+          { editable: true, className: "visibility-control" }
+        )
+      );
 
       const subtitleLabel = document.createElement("label");
       subtitleLabel.className = "eyebrow";
@@ -2747,24 +2698,7 @@ function renderRulesBlock(block, index) {
       });
       card.appendChild(bodyLabel);
       card.appendChild(bodyInput);
-
-      const noteLabel = document.createElement("label");
-      noteLabel.className = "eyebrow";
-      noteLabel.textContent = "Note box";
-      const noteInput = document.createElement("textarea");
-      noteInput.value = rulesSection.note || "";
-      noteInput.placeholder = "Optional note box";
-      noteInput.addEventListener("input", () => {
-        rulesSection.note = noteInput.value;
-      });
-      card.appendChild(noteLabel);
-      card.appendChild(noteInput);
       card.appendChild(createImageUploadControl(rulesSection.backgroundSrc ? "Replace background" : "Upload background", (src) => { rulesSection.backgroundSrc = src; render(); }, rulesSection.backgroundSrc ? () => { rulesSection.backgroundSrc = ""; render(); } : null));
-
-      const mediaControls = renderRuleMedia(rulesSection, true);
-      if (mediaControls) {
-        card.appendChild(mediaControls);
-      }
     } else {
       const title = document.createElement("h3");
       title.textContent = rulesSection.title;
@@ -2794,23 +2728,21 @@ function renderRulesBlock(block, index) {
         });
       }
       card.appendChild(bodyText);
-
-      if (rulesSection.note) {
-        const noteBox = document.createElement("div");
-        noteBox.className = "note-box";
-        noteBox.textContent = rulesSection.note;
-        card.appendChild(noteBox);
-      }
-
-      const mediaBlock = renderRuleMedia(rulesSection, false);
-      if (mediaBlock) {
-        card.appendChild(mediaBlock);
-      }
     }
 
     if (editing) {
       const actions = document.createElement("div");
       actions.className = "admin-row";
+      const upBtn = document.createElement("button");
+      upBtn.className = "btn btn-ghost btn-compact";
+      upBtn.type = "button";
+      upBtn.textContent = "↑";
+      upBtn.addEventListener("click", () => moveItem(block.sections, sectionIndex, -1));
+      const downBtn = document.createElement("button");
+      downBtn.className = "btn btn-ghost btn-compact";
+      downBtn.type = "button";
+      downBtn.textContent = "↓";
+      downBtn.addEventListener("click", () => moveItem(block.sections, sectionIndex, 1));
       const removeSection = document.createElement("button");
       removeSection.className = "btn btn-danger";
       removeSection.type = "button";
@@ -2819,6 +2751,8 @@ function renderRulesBlock(block, index) {
         block.sections.splice(sectionIndex, 1);
         render();
       });
+      actions.appendChild(upBtn);
+      actions.appendChild(downBtn);
       actions.appendChild(removeSection);
       card.appendChild(actions);
     }
@@ -2837,11 +2771,11 @@ function renderRulesBlock(block, index) {
         title: "New Information Sub-Box",
         subtitle: "",
         body: "",
-        note: "",
         mediaType: "",
         mediaSrc: "",
         mediaVideoType: "local",
-          backgroundSrc: "",
+        backgroundSrc: "",
+        visibility: "both",
       });
       render();
     });
@@ -2850,9 +2784,7 @@ function renderRulesBlock(block, index) {
 
   section.appendChild(body);
   const videos = renderVideoSection(block, { panelPadding: true, editable: editing });
-  if (videos) {
-    section.appendChild(videos);
-  }
+  if (videos) section.appendChild(videos);
   return section;
 }
 
@@ -2975,17 +2907,20 @@ function renderFlowsBlock(block, index) {
     context.textContent = block.contextText;
     header.appendChild(context);
   }
-  header.appendChild(renderBlockActions(block, index, editing));
-  if (adminMode) {
-    section.appendChild(header);
+  const headerControls = document.createElement("div");
+  headerControls.className = "header-controls";
+  if (editing) {
+    const roleEditor = renderRoleLabelsEditor();
+    roleEditor.classList.add("role-labels-editor-inline");
+    headerControls.appendChild(roleEditor);
   }
+  headerControls.appendChild(renderBlockActions(block, index, editing));
+  header.appendChild(headerControls);
+  section.appendChild(header);
 
   const body = document.createElement("div");
   body.className = "panel-body flow-grid";
 
-  if (editing) {
-    body.appendChild(renderRoleLabelsEditor());
-  }
 
   block.flows.forEach((flow, flowIndex) => {
     const hasRows = (flow.rows || []).some((row) => !isFlowRowEmpty(row));
@@ -3187,23 +3122,17 @@ function renderFlowsBlock(block, index) {
 
 function getShipMetaIcon(type) {
   const map = {
-    weapon: "✦",
-    powerplant: "◈",
-    shield: "⬡",
-    cooler: "◌",
-    cooling: "❄",
-    buyable: "🛒",
-    unavailable: "⛔",
+    weapon: "🔫",
+    powerplant: "⚡",
+    shield: "🛡️",
+    cooler: "❄️",
+    em: "📡",
+    ir: "🌡️",
+    cross: "📐",
+    buy: "🛒",
   };
   return map[type] || "•";
 }
-
-const SHIP_COMPONENT_ICON_OPTIONS = [
-  { value: "weapon", label: "Weapon" },
-  { value: "powerplant", label: "Powerplant" },
-  { value: "shield", label: "Shield" },
-  { value: "cooler", label: "Cooler" },
-];
 
 function renderShipMetaBlock(block, index) {
   const section = document.createElement("section");
@@ -3212,23 +3141,27 @@ function renderShipMetaBlock(block, index) {
   section.dataset.title = block.title || "Ship Meta Box";
   const editing = isBlockEditing(block.id);
 
-  if (adminMode) {
-    const header = document.createElement("div");
-    header.className = "panel-header";
-    header.appendChild(renderBlockTitle(block, "h2", editing));
-    header.appendChild(renderBlockActions(block, index, editing));
-    section.appendChild(header);
-  }
+  const header = document.createElement("div");
+  header.className = "panel-header";
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  header.appendChild(renderBlockActions(block, index, editing));
+  section.appendChild(header);
 
   const body = document.createElement("div");
   body.className = "panel-body ship-meta-box";
   const grid = document.createElement("div");
   grid.className = "ship-meta-subbox-grid";
 
-  block.metaItems = Array.isArray(block.metaItems) ? block.metaItems : [createBlankShipMetaItem()];
+  block.metaItems = Array.isArray(block.metaItems) && block.metaItems.length ? block.metaItems : [createBlankShipMetaItem()];
   block.metaItems.forEach((metaItem, metaIndex) => {
+    const activeMode = metaItem.activeMode === "pu" ? "pu" : "premium";
+    const modeData = metaItem.modes?.[activeMode] || createBlankShipMetaItem().modes.premium;
     const card = document.createElement("article");
     card.className = "ship-meta-subbox";
+    if (metaItem.backgroundSrc) {
+      card.classList.add("has-bg");
+      card.style.setProperty("--ship-meta-bg", `url('${metaItem.backgroundSrc}')`);
+    }
 
     const titleRow = document.createElement("div");
     titleRow.className = "ship-meta-compact-title";
@@ -3248,145 +3181,109 @@ function renderShipMetaBlock(block, index) {
       titleRow.appendChild(shipInput);
       titleRow.appendChild(roleInput);
     } else {
-      titleRow.textContent = `[ ${metaItem.shipName || "Ship"} | ${metaItem.roleTagline || "Role"} ]`;
+      const shipName = document.createElement("span");
+      shipName.textContent = metaItem.shipName || "Ship";
+      const sep = document.createElement("span");
+      sep.className = "ship-meta-separator";
+      sep.textContent = "—";
+      const role = document.createElement("span");
+      role.textContent = metaItem.roleTagline || "Role";
+      titleRow.appendChild(shipName);
+      titleRow.appendChild(sep);
+      titleRow.appendChild(role);
     }
     card.appendChild(titleRow);
 
-    const components = document.createElement("div");
-    components.className = "ship-meta-components-list";
-    (metaItem.components || []).forEach((row, rowIndex) => {
-      const rowEl = document.createElement("div");
-      rowEl.className = "ship-meta-component-row-compact";
-      if (editing) {
-        const iconSelect = document.createElement("select");
-        iconSelect.className = "panel-title-input";
-        SHIP_COMPONENT_ICON_OPTIONS.forEach((opt) => {
-          const option = document.createElement("option");
-          option.value = opt.value;
-          option.textContent = opt.label;
-          option.selected = (row.icon || "weapon") === opt.value;
-          iconSelect.appendChild(option);
-        });
-        iconSelect.addEventListener("change", () => { row.icon = iconSelect.value; });
-
-        const nameInput = document.createElement("input");
-        nameInput.type = "text";
-        nameInput.className = "panel-title-input";
-        nameInput.placeholder = "Component name";
-        nameInput.value = row.component || "";
-        nameInput.addEventListener("input", () => { row.component = nameInput.value; });
-
-        const buyableSelect = document.createElement("select");
-        buyableSelect.className = "panel-title-input";
-        [{ value: "true", label: "Buyable" }, { value: "false", label: "Not buyable" }].forEach((opt) => {
-          const option = document.createElement("option");
-          option.value = opt.value;
-          option.textContent = opt.label;
-          option.selected = String(row.buyable !== false) === opt.value;
-          buyableSelect.appendChild(option);
-        });
-        buyableSelect.addEventListener("change", () => { row.buyable = buyableSelect.value === "true"; });
-
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "btn btn-danger btn-compact";
-        removeBtn.type = "button";
-        removeBtn.textContent = "✕";
-        removeBtn.addEventListener("click", () => {
-          metaItem.components.splice(rowIndex, 1);
-          render();
-        });
-        rowEl.appendChild(iconSelect);
-        rowEl.appendChild(nameInput);
-        rowEl.appendChild(buyableSelect);
-        rowEl.appendChild(removeBtn);
-      } else {
-        const left = document.createElement("div");
-        left.className = "ship-meta-component-main";
-        const icon = document.createElement("span");
-        icon.className = "ship-icon";
-        icon.textContent = getShipMetaIcon(row.icon || "weapon");
-        const name = document.createElement("span");
-        name.className = "ship-meta-component-name";
-        name.textContent = row.component || "–";
-        left.appendChild(icon);
-        left.appendChild(name);
-
-        const buy = document.createElement("span");
-        buy.className = "ship-icon";
-        buy.textContent = getShipMetaIcon(row.buyable === false ? "unavailable" : "buyable");
-        rowEl.appendChild(left);
-        rowEl.appendChild(buy);
-      }
-      components.appendChild(rowEl);
-    });
-
-    if (editing) {
-      const addRow = document.createElement("button");
-      addRow.className = "btn btn-outline btn-compact";
-      addRow.type = "button";
-      addRow.textContent = "Add component";
-      addRow.addEventListener("click", () => {
-        metaItem.components.push({ id: createId("ship-component"), icon: "weapon", component: "", buyable: true });
+    const modeToggle = document.createElement("div");
+    modeToggle.className = "mode-toggle-buttons";
+    [
+      { value: "premium", label: "Premium Components" },
+      { value: "pu", label: "PU Shop Build" },
+    ].forEach((entry) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `mode-btn${activeMode === entry.value ? " is-active" : ""}`;
+      btn.textContent = entry.label;
+      btn.addEventListener("click", () => {
+        metaItem.activeMode = entry.value;
         render();
       });
-      components.appendChild(addRow);
+      modeToggle.appendChild(btn);
+    });
+    card.appendChild(modeToggle);
+
+    if (editing) {
+      card.appendChild(createImageUploadControl(metaItem.backgroundSrc ? "Replace sub-box background" : "Upload sub-box background", (src) => { metaItem.backgroundSrc = src; render(); }, metaItem.backgroundSrc ? () => { metaItem.backgroundSrc = ""; render(); } : null));
     }
+
+    const components = document.createElement("div");
+    components.className = "ship-meta-components-list";
+    (modeData.components || []).forEach((row) => {
+      const rowEl = document.createElement("div");
+      rowEl.className = "ship-meta-component-row-compact";
+      const left = document.createElement("div");
+      left.className = "ship-meta-component-main";
+      const icon = document.createElement("span");
+      icon.className = "ship-icon";
+      icon.textContent = getShipMetaIcon(row.key);
+      const name = document.createElement("span");
+      name.className = "ship-meta-component-name";
+      name.textContent = row.key.charAt(0).toUpperCase() + row.key.slice(1);
+      left.appendChild(icon);
+      left.appendChild(name);
+      rowEl.appendChild(left);
+
+      const componentInput = document.createElement(editing ? "input" : "span");
+      componentInput.className = "panel-title-input";
+      if (editing) {
+        componentInput.type = "text";
+        componentInput.value = row.component || "";
+        componentInput.placeholder = "Component";
+        componentInput.addEventListener("input", () => { row.component = componentInput.value; });
+      } else {
+        componentInput.textContent = row.component || "–";
+      }
+      rowEl.appendChild(componentInput);
+
+      const buy = document.createElement(editing ? "input" : "span");
+      buy.className = "panel-title-input";
+      if (editing) {
+        buy.type = "text";
+        buy.value = row.whereToBuy || "";
+        buy.placeholder = activeMode === "premium" ? "Where to buy (required)" : "🛒 Where to buy";
+        buy.addEventListener("input", () => { row.whereToBuy = buy.value; });
+      } else {
+        buy.textContent = row.whereToBuy ? `${getShipMetaIcon("buy")} ${row.whereToBuy}` : "–";
+      }
+      rowEl.appendChild(buy);
+      components.appendChild(rowEl);
+    });
     card.appendChild(components);
 
     const signatures = document.createElement("div");
     signatures.className = "ship-meta-signatures-compact";
-    signatures.appendChild(renderField("EM", metaItem.signatures?.em, (value) => { metaItem.signatures.em = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField("IR", metaItem.signatures?.ir, (value) => { metaItem.signatures.ir = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField("Front", metaItem.signatures?.crossSection?.front, (value) => { metaItem.signatures.crossSection.front = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField("Side", metaItem.signatures?.crossSection?.side, (value) => { metaItem.signatures.crossSection.side = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField("Top", metaItem.signatures?.crossSection?.top, (value) => { metaItem.signatures.crossSection.top = value; }, { editable: editing, type: "number" }));
+    signatures.appendChild(renderField(`${getShipMetaIcon("em")} EM`, modeData.signatures?.em, (value) => { modeData.signatures.em = value; }, { editable: editing, type: "number" }));
+    signatures.appendChild(renderField(`${getShipMetaIcon("ir")} IR`, modeData.signatures?.ir, (value) => { modeData.signatures.ir = value; }, { editable: editing, type: "number" }));
+    signatures.appendChild(renderField(`${getShipMetaIcon("cross")} Cross Section`, modeData.signatures?.crossSection, (value) => { modeData.signatures.crossSection = value; }, { editable: editing, type: "text" }));
+    signatures.appendChild(renderField("Sustained DPS", modeData.signatures?.sustainedDps, (value) => { modeData.signatures.sustainedDps = value; }, { editable: editing, type: "number" }));
+    signatures.appendChild(renderField("Alpha Damage", modeData.signatures?.alphaDamage, (value) => { modeData.signatures.alphaDamage = value; }, { editable: editing, type: "number" }));
     card.appendChild(signatures);
 
-    const cooling = document.createElement("div");
-    cooling.className = "ship-meta-cooling";
-    const coolingIcon = document.createElement("span");
-    coolingIcon.className = "ship-icon";
-    coolingIcon.textContent = getShipMetaIcon("cooling");
-    cooling.appendChild(coolingIcon);
-    const barsWrap = document.createElement("div");
-    barsWrap.className = "ship-meta-cooling-bars";
-    const barCount = Math.max(1, Number(metaItem.coolingBars) || 1);
-    for (let i = 0; i < barCount; i += 1) {
-      const bar = document.createElement("span");
-      bar.className = "ship-meta-cooling-bar";
-      barsWrap.appendChild(bar);
-    }
-    cooling.appendChild(barsWrap);
-    if (editing) {
-      const barsInput = document.createElement("input");
-      barsInput.type = "number";
-      barsInput.min = "1";
-      barsInput.max = "6";
-      barsInput.className = "panel-title-input";
-      barsInput.value = String(barCount);
-      barsInput.addEventListener("input", () => {
-        metaItem.coolingBars = Math.max(1, Math.min(6, Number(barsInput.value) || 1));
-        render();
-      });
-      cooling.appendChild(barsInput);
-    }
-    card.appendChild(cooling);
-
-    card.appendChild(renderField("Meta summary", metaItem.summary, (value) => { metaItem.summary = value; }, { editable: editing, type: "textarea", className: "span-two" }));
+    card.appendChild(renderField("Meta summary", modeData.summary, (value) => { modeData.summary = value; }, { editable: editing, type: "textarea", className: "span-two" }));
 
     if (editing) {
       const actions = document.createElement("div");
       actions.className = "tile-inline-actions";
-      const left = document.createElement("button");
-      left.className = "btn btn-ghost btn-compact";
-      left.type = "button";
-      left.textContent = "←";
-      left.addEventListener("click", () => moveItem(block.metaItems, metaIndex, -1));
-      const right = document.createElement("button");
-      right.className = "btn btn-ghost btn-compact";
-      right.type = "button";
-      right.textContent = "→";
-      right.addEventListener("click", () => moveItem(block.metaItems, metaIndex, 1));
+      const up = document.createElement("button");
+      up.className = "btn btn-ghost btn-compact";
+      up.type = "button";
+      up.textContent = "↑";
+      up.addEventListener("click", () => moveItem(block.metaItems, metaIndex, -1));
+      const down = document.createElement("button");
+      down.className = "btn btn-ghost btn-compact";
+      down.type = "button";
+      down.textContent = "↓";
+      down.addEventListener("click", () => moveItem(block.metaItems, metaIndex, 1));
       const remove = document.createElement("button");
       remove.className = "btn btn-danger btn-compact";
       remove.type = "button";
@@ -3396,8 +3293,8 @@ function renderShipMetaBlock(block, index) {
         if (!block.metaItems.length) block.metaItems.push(createBlankShipMetaItem());
         render();
       });
-      actions.appendChild(left);
-      actions.appendChild(right);
+      actions.appendChild(up);
+      actions.appendChild(down);
       actions.appendChild(remove);
       card.appendChild(actions);
     }
@@ -3429,13 +3326,11 @@ function renderVideoBlock(block, index) {
   section.dataset.title = block.title || "Video";
   const editing = isBlockEditing(block.id);
 
-  if (adminMode) {
-    const header = document.createElement("div");
-    header.className = "panel-header";
-    header.appendChild(renderBlockTitle(block, "h2", editing));
-    header.appendChild(renderBlockActions(block, index, editing));
-    section.appendChild(header);
-  }
+  const header = document.createElement("div");
+  header.className = "panel-header";
+  header.appendChild(renderBlockTitle(block, "h2", editing));
+  header.appendChild(renderBlockActions(block, index, editing));
+  section.appendChild(header);
 
   const videos = renderVideoSection(block, { showEmpty: !adminMode, panelPadding: true, editable: editing });
   if (videos) {
