@@ -749,6 +749,7 @@ function createBlankShipMetaItem() {
     ],
     signatures: { em: "", ir: "", crossSection: "", sustainedDps: "", alphaDamage: "" },
     summary: "",
+    lifeSupportOffRequired: false,
   });
   return {
     id: createId("ship-meta-item"),
@@ -904,6 +905,9 @@ function setSubPageDisplay(pageId, value, sourceState = state) {
   }
   if (sourceState?.pages && sourceState.pages[pageId]) {
     sourceState.pages[pageId].title = next;
+    if (sourceState.pages[pageId].hero && typeof sourceState.pages[pageId].hero === "object") {
+      sourceState.pages[pageId].hero.title = next;
+    }
   }
 }
 
@@ -1165,7 +1169,7 @@ function normalizeBlocks(blocks) {
     if (block.type === "calloutGroup") {
       block.contextText = typeof block.contextText === "string" ? block.contextText : "";
       block.subBoxes = Array.isArray(block.subBoxes) && block.subBoxes.length
-        ? block.subBoxes.slice(0, 3).map((sub, idx) => ({
+        ? block.subBoxes.map((sub, idx) => ({
             id: sub?.id || createId("study-sub"),
             title: typeof sub?.title === "string" && sub.title ? sub.title : `Study Sub-Box ${idx + 1}`,
             description: typeof sub?.description === "string" ? sub.description : "",
@@ -1204,7 +1208,6 @@ function normalizeBlocks(blocks) {
               key,
               component: typeof legacy.component === "string" ? legacy.component : "",
               whereToBuy: typeof legacy.whereToBuy === "string" ? legacy.whereToBuy : "",
-              notAvailableInPu: Boolean(legacy.notAvailableInPu),
             };
           }),
           signatures: {
@@ -1215,6 +1218,7 @@ function normalizeBlocks(blocks) {
             alphaDamage: typeof signatures.alphaDamage === "number" || typeof signatures.alphaDamage === "string" ? signatures.alphaDamage : "",
           },
           summary: typeof base.summary === "string" ? base.summary : "",
+          lifeSupportOffRequired: Boolean(base.lifeSupportOffRequired),
         };
       };
       block.metaItems = sourceItems.map((item) => {
@@ -1860,6 +1864,21 @@ function renderAdminBox() {
 
   const actionRow = document.createElement("div");
   actionRow.className = "admin-row";
+
+  if (!isHomePage) {
+    const renameInput = document.createElement("input");
+    renameInput.type = "text";
+    renameInput.className = "panel-title-input";
+    renameInput.placeholder = "Rename Page";
+    const currentSubPage = getSubPageEntry(currentPageId);
+    renameInput.value = currentSubPage?.title || currentSubPage?.navLabel || getCurrentPage()?.title || "";
+    renameInput.addEventListener("input", () => {
+      setSubPageDisplay(currentPageId, renameInput.value || "Untitled page");
+      renderPageNav();
+      renderNav();
+    });
+    actionRow.appendChild(renameInput);
+  }
 
   const exportZipBtn = document.createElement("button");
   exportZipBtn.className = "btn btn-outline";
@@ -2525,7 +2544,7 @@ function renderHomePage() {
   }
 
   const homePanel = document.createElement("section");
-  homePanel.className = "panel home-nav-panel";
+  homePanel.className = adminMode ? "panel home-nav-panel" : "home-nav-panel home-nav-panel--viewer";
   const homePanelHeader = document.createElement("div");
   homePanelHeader.className = "panel-header";
   const homeTitle = document.createElement("h2");
@@ -2547,8 +2566,8 @@ function renderHomePage() {
     controls.appendChild(moveUp);
     controls.appendChild(moveDown);
     homePanelHeader.appendChild(controls);
+    homePanel.appendChild(homePanelHeader);
   }
-  homePanel.appendChild(homePanelHeader);
 
   const homePanelBody = document.createElement("div");
   homePanelBody.className = "panel-body";
@@ -2594,7 +2613,6 @@ function renderHomePage() {
       const controls = document.createElement("div");
       controls.className = "home-tile-controls-strip";
       controls.addEventListener("click", (event) => {
-        event.preventDefault();
         event.stopPropagation();
       });
 
@@ -3290,7 +3308,7 @@ function renderFlowsBlock(block, index) {
 
 function getShipMetaIcon(type) {
   const map = {
-    weapon: "🚀",
+    weapon: "🎯",
     powerplant: "⚡",
     shield: "🛡️",
     cooler: "❄️",
@@ -3298,7 +3316,7 @@ function getShipMetaIcon(type) {
     ir: "🌡️",
     cross: "📐",
     buy: "🛒",
-    unavailable: "🚫🛒",
+    lifeSupport: "🫁",
   };
   return map[type] || "•";
 }
@@ -3350,7 +3368,6 @@ function renderShipMetaBlock(block, index) {
       titleRow.appendChild(shipInput);
       const sep = document.createElement("span");
       sep.className = "ship-meta-separator";
-      sep.textContent = "|";
       titleRow.appendChild(sep);
       titleRow.appendChild(roleInput);
     } else {
@@ -3358,7 +3375,6 @@ function renderShipMetaBlock(block, index) {
       shipName.textContent = metaItem.shipName || "Ship";
       const sep = document.createElement("span");
       sep.className = "ship-meta-separator";
-      sep.textContent = "—";
       const role = document.createElement("span");
       role.textContent = metaItem.roleTagline || "Role";
       titleRow.appendChild(shipName);
@@ -3444,33 +3460,39 @@ function renderShipMetaBlock(block, index) {
         buy.placeholder = activeMode === "premium" ? "Where to buy (required)" : "🛒 Where to buy";
         buy.addEventListener("input", () => { row.whereToBuy = buy.value; });
       } else {
-        const buyText = row.notAvailableInPu ? "Not available in PU shops" : row.whereToBuy;
-        const buyIcon = row.notAvailableInPu ? getShipMetaIcon("unavailable") : getShipMetaIcon("buy");
-        buy.textContent = buyText ? `${buyIcon} ${buyText}` : "–";
+        buy.textContent = row.whereToBuy ? `${getShipMetaIcon("buy")} ${row.whereToBuy}` : "–";
       }
       rowEl.appendChild(buy);
-      if (editing && activeMode === "premium") {
-        const quick = document.createElement("label");
-        quick.className = "ship-meta-not-pu";
-        const quickToggle = document.createElement("input");
-        quickToggle.type = "checkbox";
-        quickToggle.checked = Boolean(row.notAvailableInPu);
-        quickToggle.addEventListener("change", () => {
-          row.notAvailableInPu = quickToggle.checked;
-          if (quickToggle.checked && !row.whereToBuy) {
-            row.whereToBuy = "Not available in PU shops";
-            buy.value = row.whereToBuy;
-          }
-        });
-        const quickText = document.createElement("span");
-        quickText.textContent = "Not available in PU shops";
-        quick.appendChild(quickToggle);
-        quick.appendChild(quickText);
-        rowEl.appendChild(quick);
-      }
       components.appendChild(rowEl);
     });
     card.appendChild(components);
+
+    const lifeSupportRow = document.createElement("div");
+    lifeSupportRow.className = "ship-meta-inline-flag";
+    if (editing) {
+      const lsToggle = document.createElement("label");
+      lsToggle.className = "ship-meta-ls-toggle";
+      const lsInput = document.createElement("input");
+      lsInput.type = "checkbox";
+      lsInput.checked = Boolean(modeData.lifeSupportOffRequired);
+      lsInput.addEventListener("change", () => {
+        modeData.lifeSupportOffRequired = lsInput.checked;
+        render();
+      });
+      const lsText = document.createElement("span");
+      lsText.textContent = "Life Support Off";
+      lsToggle.appendChild(lsInput);
+      lsToggle.appendChild(lsText);
+      lifeSupportRow.appendChild(lsToggle);
+    } else if (modeData.lifeSupportOffRequired) {
+      const flag = document.createElement("span");
+      flag.className = "ship-meta-ls-flag";
+      flag.textContent = `${getShipMetaIcon("lifeSupport")} LS Off`;
+      lifeSupportRow.appendChild(flag);
+    }
+    if (lifeSupportRow.childNodes.length) {
+      card.appendChild(lifeSupportRow);
+    }
 
     const signatures = document.createElement("div");
     signatures.className = "ship-meta-signatures-compact";
@@ -3918,7 +3940,7 @@ function renderCalloutGroupBlock(block, index) {
   const header = document.createElement("div");
   header.className = "category-header";
 
-  block.subBoxes = Array.isArray(block.subBoxes) && block.subBoxes.length ? block.subBoxes.slice(0, 3) : [{ id: `${block.id}-subbox-1`, title: "Study Sub-Box", description: "" }];
+  block.subBoxes = Array.isArray(block.subBoxes) && block.subBoxes.length ? block.subBoxes : [{ id: `${block.id}-subbox-1`, title: "Study Sub-Box", description: "" }];
   const titleWrap = document.createElement("div");
   titleWrap.className = "block-title-wrap study-minimal-title";
   if (editing) {
@@ -3982,23 +4004,12 @@ function renderCalloutGroupBlock(block, index) {
     addSub.className = "btn btn-ghost btn-compact";
     addSub.type = "button";
     addSub.textContent = "Add Study Sub-Box";
-    addSub.disabled = block.subBoxes.length >= 3;
     addSub.addEventListener("click", () => {
-      if (block.subBoxes.length < 3) {
-        block.subBoxes.push({ id: createId("study-sub"), title: "Study Sub-Box", description: "" });
-        render();
-      }
+      block.subBoxes.push({ id: createId("study-sub"), title: "Study Sub-Box", description: "" });
+      render();
     });
     subActions.appendChild(addSub);
     section.appendChild(subActions);
-  }
-
-  if (!groupCallouts.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "No elements in this sub-box yet.";
-    section.appendChild(empty);
-    return section;
   }
 
   const subGrid = document.createElement("div");
@@ -4049,8 +4060,84 @@ function renderCalloutGroupBlock(block, index) {
     }
     subCard.appendChild(subHead);
 
-    groupCallouts.filter((item) => (item.subBoxId || block.subBoxes[0]?.id) === subBox.id).forEach((item) => {
-      subCard.appendChild(renderCalloutCard(item, { editable: editing, studyOverlay: true }));
+    if (editing) {
+      const subElementActions = document.createElement("div");
+      subElementActions.className = "tile-inline-actions";
+      const addElement = document.createElement("button");
+      addElement.className = "btn btn-outline btn-compact";
+      addElement.type = "button";
+      addElement.textContent = "Add Element";
+      addElement.addEventListener("click", () => {
+        getPageCallouts().push(createBlankCall(block.id, subBox.id));
+        render();
+      });
+      const removeElement = document.createElement("button");
+      removeElement.className = "btn btn-danger btn-compact";
+      removeElement.type = "button";
+      removeElement.textContent = "Remove Element";
+      removeElement.addEventListener("click", () => {
+        const callouts = getPageCallouts();
+        const targetIdx = callouts.map((item, idx) => ({ item, idx })).filter(({ item }) => item.groupId === block.id && (item.subBoxId || block.subBoxes[0]?.id) === subBox.id).at(-1)?.idx;
+        if (typeof targetIdx === "number") {
+          callouts.splice(targetIdx, 1);
+          render();
+        }
+      });
+      subElementActions.appendChild(addElement);
+      subElementActions.appendChild(removeElement);
+      subCard.appendChild(subElementActions);
+    }
+
+    const subCallouts = groupCallouts.filter((item) => (item.subBoxId || block.subBoxes[0]?.id) === subBox.id);
+    if (!subCallouts.length) {
+      const emptySub = document.createElement("div");
+      emptySub.className = "empty-state";
+      emptySub.textContent = "No elements in this sub-box yet.";
+      subCard.appendChild(emptySub);
+    }
+
+    subCallouts.forEach((item, itemIndex) => {
+      const card = renderCalloutCard(item, { editable: editing, studyOverlay: true });
+      if (editing) {
+        const reorder = document.createElement("div");
+        reorder.className = "tile-inline-actions";
+        const up = document.createElement("button");
+        up.className = "btn btn-ghost btn-compact";
+        up.type = "button";
+        up.textContent = "↑";
+        up.disabled = itemIndex === 0;
+        up.addEventListener("click", () => {
+          const callouts = getPageCallouts();
+          const indexes = callouts.map((entry, idx2) => ({ entry, idx2 })).filter(({ entry }) => entry.groupId === block.id && (entry.subBoxId || block.subBoxes[0]?.id) === subBox.id).map(({ idx2 }) => idx2);
+          const from = indexes[itemIndex];
+          const to = indexes[itemIndex - 1];
+          if (typeof from === "number" && typeof to === "number") {
+            const [moved] = callouts.splice(from, 1);
+            callouts.splice(to, 0, moved);
+            render();
+          }
+        });
+        const down = document.createElement("button");
+        down.className = "btn btn-ghost btn-compact";
+        down.type = "button";
+        down.textContent = "↓";
+        down.disabled = itemIndex >= subCallouts.length - 1;
+        down.addEventListener("click", () => {
+          const callouts = getPageCallouts();
+          const indexes = callouts.map((entry, idx2) => ({ entry, idx2 })).filter(({ entry }) => entry.groupId === block.id && (entry.subBoxId || block.subBoxes[0]?.id) === subBox.id).map(({ idx2 }) => idx2);
+          const from = indexes[itemIndex];
+          const to = indexes[itemIndex + 1];
+          if (typeof from === "number" && typeof to === "number") {
+            const [moved] = callouts.splice(from, 1);
+            callouts.splice(to, 0, moved);
+            render();
+          }
+        });
+        reorder.appendChild(up);
+        reorder.appendChild(down);
+        card.appendChild(reorder);
+      }
+      subCard.appendChild(card);
     });
     subGrid.appendChild(subCard);
   });
