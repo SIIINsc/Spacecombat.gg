@@ -633,6 +633,7 @@ let pendingScrollY = null;
 let currentPageId = "home";
 let shouldAnimatePageContent = false;
 let shouldAnimateNavDeploy = false;
+let draggedPageId = "";
 
 const headerContent = document.getElementById("headerContent");
 const footerContent = document.getElementById("footerContent");
@@ -754,6 +755,7 @@ function createBlankShipMetaItem() {
     shipName: "",
     roleTagline: "",
     backgroundSrc: "",
+    infoUrl: "",
     activeMode: "premium",
     modes: {
       premium: createModeData(),
@@ -1106,6 +1108,7 @@ function normalizeCallouts(callouts) {
       importantNote: callout.importantNote || "",
       visibility: normalizeVisibility(callout.visibility),
       videos: normalizedVideos,
+      subBoxId: typeof callout.subBoxId === "string" ? callout.subBoxId : "",
     };
     ensureCalloutSubElements(normalized);
     return normalized;
@@ -1139,7 +1142,7 @@ function normalizeBlocks(blocks) {
         title: section.title || "New Information Sub-Box",
         subtitle: section.subtitle || "",
         body: section.body || (Array.isArray(section.items) ? section.items.join("\n") : ""),
-        mediaType: section.mediaType || "",
+        mediaType: ["image", "video", "youtube"].includes(section.mediaType) ? section.mediaType : "",
         mediaSrc: section.mediaSrc || "",
         mediaVideoType: section.mediaVideoType || "local",
         backgroundSrc: typeof section.backgroundSrc === "string" ? section.backgroundSrc : "",
@@ -1160,6 +1163,13 @@ function normalizeBlocks(blocks) {
     }
     if (block.type === "calloutGroup") {
       block.contextText = typeof block.contextText === "string" ? block.contextText : "";
+      block.subBoxes = Array.isArray(block.subBoxes) && block.subBoxes.length
+        ? block.subBoxes.slice(0, 2).map((sub, idx) => ({
+            id: sub?.id || createId("study-sub"),
+            title: typeof sub?.title === "string" && sub.title ? sub.title : `Study Sub-Box ${idx + 1}`,
+            description: typeof sub?.description === "string" ? sub.description : "",
+          }))
+        : [{ id: `${block.id}-subbox-1`, title: "Study Sub-Box", description: "" }];
     }
     if (block.type === "shipMeta") {
       block.title = typeof block.title === "string" && block.title ? block.title : "Ship Meta Box";
@@ -1218,6 +1228,7 @@ function normalizeBlocks(blocks) {
           shipName: typeof item?.shipName === "string" ? item.shipName : "",
           roleTagline: typeof item?.roleTagline === "string" ? item.roleTagline : "",
           backgroundSrc: typeof item?.backgroundSrc === "string" ? item.backgroundSrc : "",
+          infoUrl: typeof item?.infoUrl === "string" ? item.infoUrl : "",
           activeMode: item?.activeMode === "pu" ? "pu" : "premium",
           modes: {
             premium: normalizeModeData(premiumSource, legacyMode),
@@ -1431,8 +1442,8 @@ function syncPageFromHash() {
 
 window.addEventListener("hashchange", () => {
   const changed = syncPageFromHash();
-  shouldAnimatePageContent = changed;
-  shouldAnimateNavDeploy = changed;
+  shouldAnimatePageContent = false;
+  shouldAnimateNavDeploy = changed && currentPageId !== "home";
   render();
 });
 
@@ -1581,10 +1592,20 @@ function renderHeader() {
     altInput.addEventListener("input", () => {
       state.header.logoAlt = altInput.value;
     });
+    const clearLogo = document.createElement("button");
+    clearLogo.type = "button";
+    clearLogo.className = "btn btn-ghost btn-compact";
+    clearLogo.textContent = "Clear logo";
+    clearLogo.addEventListener("click", () => {
+      state.header.logoSrc = "";
+      logoInput.value = "";
+      render();
+    });
     logoEditor.appendChild(logoLabel);
     logoEditor.appendChild(logoInput);
     logoEditor.appendChild(logoUploadLabel);
     logoEditor.appendChild(logoUploadInput);
+    logoEditor.appendChild(clearLogo);
     logoEditor.appendChild(altInput);
     wrapper.appendChild(logoEditor);
   } else {
@@ -1899,6 +1920,7 @@ function renderAdminBox() {
       type: "calloutGroup",
       title: "New Study Box",
       videos: [],
+      subBoxes: [{ id: createId("study-sub"), title: "Study Sub-Box", description: "" }],
     });
     render();
   });
@@ -1993,12 +2015,7 @@ function renderHeaderActions() {
       button.addEventListener("click", () => setViewMode(mode.id));
       wrap.appendChild(button);
     });
-    const homeBtn = document.createElement("a");
-    homeBtn.href = "#home";
-    homeBtn.className = `home-nav-btn${currentPageId === "home" ? " is-active" : ""}`;
-    homeBtn.textContent = "Home";
     stack.appendChild(wrap);
-    stack.appendChild(homeBtn);
     headerModeToggle.appendChild(stack);
   }
 }
@@ -2144,6 +2161,17 @@ function renderRuleMedia(section, editable) {
     wrap.appendChild(video);
   }
 
+  if (section.mediaType === "youtube" && section.mediaSrc) {
+    const embedUrl = toYoutubeEmbed(section.mediaSrc);
+    if (embedUrl) {
+      const frame = document.createElement("iframe");
+      frame.className = "youtube-frame";
+      frame.src = embedUrl;
+      frame.allowFullscreen = true;
+      wrap.appendChild(frame);
+    }
+  }
+
   if (editable) {
     const mediaSelect = renderSelect(
       "Media type",
@@ -2152,6 +2180,7 @@ function renderRuleMedia(section, editable) {
         { value: "", label: "None" },
         { value: "image", label: "Image" },
         { value: "video", label: "Video" },
+        { value: "youtube", label: "YouTube link" },
       ],
       (value) => {
         section.mediaType = value;
@@ -2201,6 +2230,18 @@ function renderRuleMedia(section, editable) {
             : null
         )
       );
+    }
+
+    if (section.mediaType === "youtube") {
+      const youtubeInput = document.createElement("input");
+      youtubeInput.type = "text";
+      youtubeInput.className = "panel-title-input";
+      youtubeInput.placeholder = "https://youtube.com/watch?v=...";
+      youtubeInput.value = section.mediaSrc || "";
+      youtubeInput.addEventListener("input", () => {
+        section.mediaSrc = youtubeInput.value.trim();
+      });
+      wrap.appendChild(youtubeInput);
     }
   }
 
@@ -2375,17 +2416,50 @@ function renderNav() {
 function renderPageNav() {
   if (!pageNav) return;
   pageNav.innerHTML = "";
-  if (currentPageId === "home") return;
-  pageNav.classList.remove("nav-deploy");
-  if (shouldAnimateNavDeploy) {
-    requestAnimationFrame(() => pageNav.classList.add("nav-deploy"));
-  }
-  getVisiblePageDefinitions().filter((page) => page.id !== "home").forEach((page, index) => {
+
+  const pages = getVisiblePageDefinitions();
+  pages.forEach((page, index) => {
     const link = document.createElement("a");
     link.href = `#${page.id}`;
     link.textContent = page.title || page.navLabel;
+    link.dataset.pageId = page.id;
+    if (page.id === "home") link.classList.add("is-home-link");
     if (page.id === currentPageId) link.classList.add("is-active");
     link.style.setProperty("--deploy-order", String(index));
+
+    if (adminMode && page.id !== "home") {
+      link.draggable = true;
+      link.classList.add("is-draggable");
+      link.addEventListener("dragstart", (event) => {
+        draggedPageId = page.id;
+        event.dataTransfer.effectAllowed = "move";
+      });
+      link.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        link.classList.add("drop-target");
+      });
+      link.addEventListener("dragleave", () => {
+        link.classList.remove("drop-target");
+      });
+      link.addEventListener("drop", (event) => {
+        event.preventDefault();
+        link.classList.remove("drop-target");
+        if (!draggedPageId || draggedPageId === page.id) return;
+        const list = getHomeSubPages();
+        const from = list.findIndex((item) => item.id === draggedPageId);
+        const to = list.findIndex((item) => item.id === page.id);
+        if (from < 0 || to < 0) return;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        draggedPageId = "";
+        render();
+      });
+      link.addEventListener("dragend", () => {
+        draggedPageId = "";
+        pageNav.querySelectorAll(".drop-target").forEach((item) => item.classList.remove("drop-target"));
+      });
+    }
+
     pageNav.appendChild(link);
   });
 }
@@ -2403,6 +2477,7 @@ function renderHomePage() {
     const id = subPage.id;
     const tile = document.createElement(adminMode ? "article" : "a");
     tile.className = "panel home-tile";
+    tile.dataset.pageId = id;
     if (!adminMode) tile.href = `#${id}`;
 
     const tileLabel = subPage.title || subPage.navLabel || "Untitled page";
@@ -2430,6 +2505,25 @@ function renderHomePage() {
     }
 
     if (adminMode) {
+      tile.draggable = true;
+      tile.addEventListener("dragstart", () => { draggedPageId = id; });
+      tile.addEventListener("dragover", (event) => { event.preventDefault(); tile.classList.add("drop-target"); });
+      tile.addEventListener("dragleave", () => { tile.classList.remove("drop-target"); });
+      tile.addEventListener("drop", (event) => {
+        event.preventDefault();
+        tile.classList.remove("drop-target");
+        const from = home.subPages.findIndex((item) => item.id === draggedPageId);
+        const to = home.subPages.findIndex((item) => item.id === id);
+        if (from >= 0 && to >= 0 && from !== to) {
+          const [moved] = home.subPages.splice(from, 1);
+          home.subPages.splice(to, 0, moved);
+          render();
+        }
+      });
+      tile.addEventListener("dragend", () => {
+        draggedPageId = "";
+        document.querySelectorAll(".home-tile.drop-target").forEach((item) => item.classList.remove("drop-target"));
+      });
       const controls = document.createElement("div");
       controls.className = "home-tile-controls-strip";
       controls.addEventListener("click", (event) => {
@@ -2457,6 +2551,25 @@ function renderHomePage() {
       moveDown.addEventListener("click", (event) => { event.preventDefault(); moveItem(home.subPages, subIndex, 1); });
       topRow.appendChild(moveUp);
       topRow.appendChild(moveDown);
+      const removePage = document.createElement("button");
+      removePage.className = "btn btn-danger btn-compact";
+      removePage.type = "button";
+      removePage.textContent = "Remove";
+      removePage.addEventListener("click", (event) => {
+        event.preventDefault();
+        const idx = home.subPages.findIndex((item) => item.id === subPage.id);
+        if (idx >= 0) {
+          home.subPages.splice(idx, 1);
+          delete state.pages[subPage.id];
+          if (currentPageId === subPage.id) {
+            currentPageId = "home";
+            window.location.hash = "#home";
+          }
+          render();
+        }
+      });
+      topRow.appendChild(removePage);
+
       controls.appendChild(topRow);
 
       const renameWrap = document.createElement("div");
@@ -2580,9 +2693,6 @@ function render() {
   renderNav();
   blocksContainer.innerHTML = "";
   blocksContainer.classList.remove("page-content-enter");
-  if (shouldAnimatePageContent) {
-    blocksContainer.classList.add("page-content-enter");
-  }
 
   if (currentPageId === "home") {
     renderHomePage();
@@ -2699,6 +2809,8 @@ function renderRulesBlock(block, index) {
       card.appendChild(bodyLabel);
       card.appendChild(bodyInput);
       card.appendChild(createImageUploadControl(rulesSection.backgroundSrc ? "Replace background" : "Upload background", (src) => { rulesSection.backgroundSrc = src; render(); }, rulesSection.backgroundSrc ? () => { rulesSection.backgroundSrc = ""; render(); } : null));
+      const media = renderRuleMedia(rulesSection, true);
+      if (media) card.appendChild(media);
     } else {
       const title = document.createElement("h3");
       title.textContent = rulesSection.title;
@@ -2728,6 +2840,8 @@ function renderRulesBlock(block, index) {
         });
       }
       card.appendChild(bodyText);
+      const media = renderRuleMedia(rulesSection, false);
+      if (media) card.appendChild(media);
     }
 
     if (editing) {
@@ -2908,7 +3022,7 @@ function renderFlowsBlock(block, index) {
     header.appendChild(context);
   }
   const headerControls = document.createElement("div");
-  headerControls.className = "header-controls";
+  headerControls.className = "block-header-controls";
   if (editing) {
     const roleEditor = renderRoleLabelsEditor();
     roleEditor.classList.add("role-labels-editor-inline");
@@ -3122,7 +3236,7 @@ function renderFlowsBlock(block, index) {
 
 function getShipMetaIcon(type) {
   const map = {
-    weapon: "🔫",
+    weapon: "✦",
     powerplant: "⚡",
     shield: "🛡️",
     cooler: "❄️",
@@ -3179,6 +3293,10 @@ function renderShipMetaBlock(block, index) {
       roleInput.value = metaItem.roleTagline || "";
       roleInput.addEventListener("input", () => { metaItem.roleTagline = roleInput.value; });
       titleRow.appendChild(shipInput);
+      const sep = document.createElement("span");
+      sep.className = "ship-meta-separator";
+      sep.textContent = "|";
+      titleRow.appendChild(sep);
       titleRow.appendChild(roleInput);
     } else {
       const shipName = document.createElement("span");
@@ -3192,10 +3310,32 @@ function renderShipMetaBlock(block, index) {
       titleRow.appendChild(sep);
       titleRow.appendChild(role);
     }
-    card.appendChild(titleRow);
+    const infoBtn = document.createElement(editing ? "input" : "a");
+    infoBtn.className = "ship-meta-info-link";
+    if (editing) {
+      infoBtn.type = "text";
+      infoBtn.placeholder = "More info URL (SPViewer/Erkul)";
+      infoBtn.value = metaItem.infoUrl || "";
+      infoBtn.addEventListener("input", () => { metaItem.infoUrl = infoBtn.value; });
+    } else {
+      infoBtn.textContent = "More info ↗";
+      if (metaItem.infoUrl) {
+        infoBtn.href = metaItem.infoUrl;
+        infoBtn.target = "_blank";
+        infoBtn.rel = "noopener noreferrer";
+      } else {
+        infoBtn.href = "javascript:void(0)";
+        infoBtn.classList.add("is-disabled");
+      }
+    }
+    const titleBar = document.createElement("div");
+    titleBar.className = "ship-meta-title-bar";
+    titleBar.appendChild(titleRow);
+    titleBar.appendChild(infoBtn);
+    card.appendChild(titleBar);
 
     const modeToggle = document.createElement("div");
-    modeToggle.className = "mode-toggle-buttons";
+    modeToggle.className = "mode-toggle-buttons ship-mode-toggle";
     [
       { value: "premium", label: "Premium Components" },
       { value: "pu", label: "PU Shop Build" },
@@ -3226,11 +3366,7 @@ function renderShipMetaBlock(block, index) {
       const icon = document.createElement("span");
       icon.className = "ship-icon";
       icon.textContent = getShipMetaIcon(row.key);
-      const name = document.createElement("span");
-      name.className = "ship-meta-component-name";
-      name.textContent = row.key.charAt(0).toUpperCase() + row.key.slice(1);
       left.appendChild(icon);
-      left.appendChild(name);
       rowEl.appendChild(left);
 
       const componentInput = document.createElement(editing ? "input" : "span");
@@ -3262,11 +3398,20 @@ function renderShipMetaBlock(block, index) {
 
     const signatures = document.createElement("div");
     signatures.className = "ship-meta-signatures-compact";
-    signatures.appendChild(renderField(`${getShipMetaIcon("em")} EM`, modeData.signatures?.em, (value) => { modeData.signatures.em = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField(`${getShipMetaIcon("ir")} IR`, modeData.signatures?.ir, (value) => { modeData.signatures.ir = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField(`${getShipMetaIcon("cross")} Cross Section`, modeData.signatures?.crossSection, (value) => { modeData.signatures.crossSection = value; }, { editable: editing, type: "text" }));
-    signatures.appendChild(renderField("Sustained DPS", modeData.signatures?.sustainedDps, (value) => { modeData.signatures.sustainedDps = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(renderField("Alpha Damage", modeData.signatures?.alphaDamage, (value) => { modeData.signatures.alphaDamage = value; }, { editable: editing, type: "number" }));
+    const leftSig = document.createElement("div");
+    leftSig.className = "ship-meta-signature-cluster";
+    leftSig.appendChild(renderField(`${getShipMetaIcon("em")} EM`, modeData.signatures?.em, (value) => { modeData.signatures.em = value; }, { editable: editing, type: "number" }));
+    leftSig.appendChild(renderField(`${getShipMetaIcon("ir")} IR`, modeData.signatures?.ir, (value) => { modeData.signatures.ir = value; }, { editable: editing, type: "number" }));
+    leftSig.appendChild(renderField(`${getShipMetaIcon("cross")} Cross Section`, modeData.signatures?.crossSection, (value) => { modeData.signatures.crossSection = value; }, { editable: editing, type: "text" }));
+    const sep = document.createElement("span");
+    sep.className = "ship-meta-v-sep";
+    const rightSig = document.createElement("div");
+    rightSig.className = "ship-meta-signature-damage";
+    rightSig.appendChild(renderField("Sustained DPS", modeData.signatures?.sustainedDps, (value) => { modeData.signatures.sustainedDps = value; }, { editable: editing, type: "number" }));
+    rightSig.appendChild(renderField("Alpha Damage", modeData.signatures?.alphaDamage, (value) => { modeData.signatures.alphaDamage = value; }, { editable: editing, type: "number" }));
+    signatures.appendChild(leftSig);
+    signatures.appendChild(sep);
+    signatures.appendChild(rightSig);
     card.appendChild(signatures);
 
     card.appendChild(renderField("Meta summary", modeData.summary, (value) => { modeData.summary = value; }, { editable: editing, type: "textarea", className: "span-two" }));
@@ -3697,8 +3842,9 @@ function renderCalloutGroupBlock(block, index) {
   const header = document.createElement("div");
   header.className = "category-header";
 
+  block.subBoxes = Array.isArray(block.subBoxes) && block.subBoxes.length ? block.subBoxes.slice(0, 2) : [{ id: `${block.id}-subbox-1`, title: "Study Sub-Box", description: "" }];
   const titleWrap = document.createElement("div");
-  titleWrap.className = "block-title-wrap";
+  titleWrap.className = "block-title-wrap study-minimal-title";
   if (editing) {
     const titleInput = document.createElement("input");
     titleInput.type = "text";
@@ -3740,7 +3886,8 @@ function renderCalloutGroupBlock(block, index) {
     addBtn.type = "button";
     addBtn.textContent = "Add Element";
     addBtn.addEventListener("click", () => {
-      getPageCallouts().push(createBlankCall(block.id));
+      const targetSub = block.subBoxes[0]?.id || `${block.id}-subbox-1`;
+      getPageCallouts().push(createBlankCall(block.id, targetSub));
       render();
     });
     actionWrap.appendChild(addBtn);
@@ -3752,6 +3899,24 @@ function renderCalloutGroupBlock(block, index) {
 
   const groupCallouts = getPageCallouts().filter((callout) => callout.groupId === block.id);
 
+  if (editing) {
+    const subActions = document.createElement("div");
+    subActions.className = "tile-inline-actions";
+    const addSub = document.createElement("button");
+    addSub.className = "btn btn-ghost btn-compact";
+    addSub.type = "button";
+    addSub.textContent = "Add Study Sub-Box";
+    addSub.disabled = block.subBoxes.length >= 2;
+    addSub.addEventListener("click", () => {
+      if (block.subBoxes.length < 2) {
+        block.subBoxes.push({ id: createId("study-sub"), title: "Study Sub-Box", description: "" });
+        render();
+      }
+    });
+    subActions.appendChild(addSub);
+    section.appendChild(subActions);
+  }
+
   if (!groupCallouts.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
@@ -3760,9 +3925,46 @@ function renderCalloutGroupBlock(block, index) {
     return section;
   }
 
-  groupCallouts.forEach((item) => {
-    section.appendChild(renderCalloutCard(item, { editable: editing }));
+  const subGrid = document.createElement("div");
+  subGrid.className = "study-subbox-grid";
+  block.subBoxes.forEach((subBox, subIndex) => {
+    const subCard = document.createElement("div");
+    subCard.className = "study-subbox-card";
+    const subHead = document.createElement("div");
+    subHead.className = "study-subbox-head";
+    if (editing) {
+      const subTitle = document.createElement("input");
+      subTitle.type = "text";
+      subTitle.className = "panel-title-input";
+      subTitle.value = subBox.title || "Study Sub-Box";
+      subTitle.addEventListener("input", () => { subBox.title = subTitle.value; });
+      subHead.appendChild(subTitle);
+      if (block.subBoxes.length > 1) {
+        const delSub = document.createElement("button");
+        delSub.className = "btn btn-danger btn-compact";
+        delSub.type = "button";
+        delSub.textContent = "Remove";
+        delSub.addEventListener("click", () => {
+          block.subBoxes.splice(subIndex, 1);
+          const fallback = block.subBoxes[0]?.id || "";
+          groupCallouts.forEach((callout) => { if (callout.subBoxId === subBox.id) callout.subBoxId = fallback; });
+          render();
+        });
+        subHead.appendChild(delSub);
+      }
+    } else {
+      const subTitle = document.createElement("h3");
+      subTitle.textContent = subBox.title || "Study Sub-Box";
+      subHead.appendChild(subTitle);
+    }
+    subCard.appendChild(subHead);
+
+    groupCallouts.filter((item) => (item.subBoxId || block.subBoxes[0]?.id) === subBox.id).forEach((item) => {
+      subCard.appendChild(renderCalloutCard(item, { editable: editing }));
+    });
+    subGrid.appendChild(subCard);
   });
+  section.appendChild(subGrid);
 
   const videos = renderVideoSection(block, { panelPadding: false, editable: editing });
   if (videos) {
@@ -4383,11 +4585,12 @@ function getLegacyTargetLabel(targetId) {
   return `Legacy target — ${targetId}`;
 }
 
-function createBlankCall(groupId) {
+function createBlankCall(groupId, subBoxId = "") {
   return {
     id: createId("callout"),
     callName: "New Element",
     groupId,
+    subBoxId,
     subElements: DEFAULT_SUB_ELEMENTS.map((label) => ({ id: createId("subel"), title: label, content: "" })),
     notes: "",
     importantNote: "",
@@ -5347,6 +5550,10 @@ function buildRuleMediaHtml(section) {
   }
   if (section.mediaType === "video") {
     return `<div class="rule-media"><video class="local-video" src="${escapeHtml(section.mediaSrc)}" controls></video></div>`;
+  }
+  if (section.mediaType === "youtube") {
+    const embedUrl = toYoutubeEmbed(section.mediaSrc);
+    return embedUrl ? `<div class="rule-media"><iframe class="youtube-frame" src="${escapeHtml(embedUrl)}" allowfullscreen></iframe></div>` : "";
   }
   return "";
 }
