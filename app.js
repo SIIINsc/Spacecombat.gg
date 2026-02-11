@@ -63,7 +63,7 @@ const DEFAULT_STATE = {
     { id: "yourself", label: "Yourself", color: "#4cc3ff" },
     { id: "enemyTarget", label: "Enemy target", color: "#ff6b6b" },
   ],
-  onlineAuth: [{ id: "online-auth-default", username: "SIIIN", password: "1111" }],
+  onlineAuth: [{ id: "online-auth-default", username: "SIIIN", password: "1111", role: "admin" }],
   footer: {
     lines: ["How to run: open index.html directly in a browser."],
     note: "Viewer/Admin lock is convenience-only because this is a static offline site.",
@@ -1052,6 +1052,7 @@ function normalizeState(source) {
       id: entry?.id || createId("online-auth"),
       username: typeof entry?.username === "string" ? entry.username : "",
       password: typeof entry?.password === "string" ? entry.password : "",
+      role: entry?.role === "editor" ? "editor" : "admin",
     }))
     .filter((entry) => entry.username || entry.password);
   if (!nextState.onlineAuth.length) {
@@ -1246,7 +1247,12 @@ function loadAdmin() {
     return false;
   }
   if (ONLINE_BUILD) {
-    return localStorage.getItem(ONLINE_AUTH_KEY) === "true";
+    try {
+      const auth = JSON.parse(localStorage.getItem(ONLINE_AUTH_KEY) || "null");
+      return Boolean(auth && auth.loggedIn);
+    } catch (error) {
+      return false;
+    }
   }
   return localStorage.getItem(ADMIN_KEY) === "true";
 }
@@ -1442,8 +1448,8 @@ function syncPageFromHash() {
 
 window.addEventListener("hashchange", () => {
   const changed = syncPageFromHash();
-  shouldAnimatePageContent = false;
-  shouldAnimateNavDeploy = changed && currentPageId !== "home";
+  shouldAnimatePageContent = changed;
+  shouldAnimateNavDeploy = false;
   render();
 });
 
@@ -1785,6 +1791,18 @@ function renderAdminBox() {
       passwordInput.addEventListener("input", () => {
         state.onlineAuth[index].password = passwordInput.value;
       });
+      const roleSelect = document.createElement("select");
+      roleSelect.className = "panel-title-input";
+      [{ value: "admin", label: "Admin" }, { value: "editor", label: "Editor" }].forEach((opt) => {
+        const option = document.createElement("option");
+        option.value = opt.value;
+        option.textContent = opt.label;
+        option.selected = (account.role || "admin") === opt.value;
+        roleSelect.appendChild(option);
+      });
+      roleSelect.addEventListener("change", () => {
+        state.onlineAuth[index].role = roleSelect.value;
+      });
       const removeBtn = document.createElement("button");
       removeBtn.className = "btn btn-danger";
       removeBtn.type = "button";
@@ -1796,6 +1814,7 @@ function renderAdminBox() {
       });
       onlineRow.appendChild(usernameInput);
       onlineRow.appendChild(passwordInput);
+      onlineRow.appendChild(roleSelect);
       onlineRow.appendChild(removeBtn);
       onlineSection.appendChild(onlineRow);
     });
@@ -1804,7 +1823,7 @@ function renderAdminBox() {
     addOnlineAccount.type = "button";
     addOnlineAccount.textContent = "Add account";
     addOnlineAccount.addEventListener("click", () => {
-      state.onlineAuth.push({ id: createId("online-auth"), username: "", password: "" });
+      state.onlineAuth.push({ id: createId("online-auth"), username: "", password: "", role: "editor" });
       render();
     });
     onlineSection.appendChild(addOnlineAccount);
@@ -1961,7 +1980,13 @@ function renderAdminBox() {
   actionSection.appendChild(note);
 
   if (isHomePage) {
-    adminBox.appendChild(headerSection);
+    const headerDetails = document.createElement("details");
+    headerDetails.className = "admin-details";
+    const summary = document.createElement("summary");
+    summary.textContent = "Edit Header";
+    headerDetails.appendChild(summary);
+    headerDetails.appendChild(headerSection);
+    adminBox.appendChild(headerDetails);
     if (onlineSection) {
       adminBox.appendChild(onlineSection);
     }
@@ -2001,6 +2026,10 @@ function renderHeaderActions() {
     headerModeToggle.innerHTML = "";
     const stack = document.createElement("div");
     stack.className = "mode-toggle-stack";
+    const difficulty = document.createElement("div");
+    difficulty.className = "eyebrow difficulty-label";
+    difficulty.textContent = "Difficulty";
+    stack.appendChild(difficulty);
     const wrap = document.createElement("div");
     wrap.className = "mode-toggle-buttons";
     [
@@ -2272,7 +2301,7 @@ function renderOnlineAdminEntry() {
   const details = document.createElement("details");
   details.className = "online-admin-details";
   const summary = document.createElement("summary");
-  summary.textContent = "Admin";
+  summary.textContent = "Login";
   details.appendChild(summary);
 
   const form = document.createElement("form");
@@ -2301,10 +2330,10 @@ function renderOnlineAdminEntry() {
     const authEntries = Array.isArray(window.__ONLINE_AUTH__)
       ? window.__ONLINE_AUTH__
       : (Array.isArray(state.onlineAuth) ? state.onlineAuth : DEFAULT_STATE.onlineAuth);
-    const hasMatch = authEntries.some((entry) => userInput.value === entry.username && passInput.value === entry.password);
-    if (hasMatch) {
+    const match = authEntries.find((entry) => userInput.value === entry.username && passInput.value === entry.password);
+    if (match) {
       adminMode = true;
-      localStorage.setItem(ONLINE_AUTH_KEY, "true");
+      localStorage.setItem(ONLINE_AUTH_KEY, JSON.stringify({ loggedIn: true, role: match.role === "editor" ? "editor" : "admin", username: match.username || "" }));
       message.textContent = "";
       updateAdminUI();
       details.removeAttribute("open");
@@ -2727,6 +2756,9 @@ function render() {
     }
   });
 
+  if (shouldAnimatePageContent) {
+    requestAnimationFrame(() => blocksContainer.classList.add("page-content-enter"));
+  }
   updateScrollOffset();
   scrollToHashTarget();
   if (typeof pendingScrollY === "number") {
