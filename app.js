@@ -4,6 +4,9 @@ const STORAGE_KEY = "scscp_state";
 const ADMIN_KEY = "scscp_admin";
 const THEME_KEY = "scscp_theme";
 const MODE_KEY = "scscp_view_mode";
+const HEADER_HEIGHT_KEY = "scscp_header_height";
+const HEADER_HEIGHT_MIN = 150;
+const HEADER_HEIGHT_MAX = 460;
 const ROLE_COLOR_OPTIONS = [
   { label: "Azure", value: "#4cc3ff" },
   { label: "Violet", value: "#9e62ff" },
@@ -508,7 +511,7 @@ const DEFAULT_STATE = {
 
 const THEMES = {
   default: {
-    label: "Default",
+    label: "Stanton",
     colors: {
       "--bg": "#090c12",
       "--panel": "#121720",
@@ -521,22 +524,6 @@ const THEMES = {
       "--danger": "#b8707f",
       "--success": "#7fb6a0",
       "--warning": "#bda980",
-    },
-  },
-  stanton: {
-    label: "Stanton",
-    colors: {
-      "--bg": "#0b1018",
-      "--panel": "#121a26",
-      "--panel-elev": "#182233",
-      "--line": "#24324a",
-      "--text": "#e3ecf5",
-      "--muted": "#9bb0c9",
-      "--accent": "#4cc3ff",
-      "--accent-strong": "#7ad7ff",
-      "--danger": "#ff6b6b",
-      "--success": "#6bffb3",
-      "--warning": "#ffce6b",
     },
   },
   grimhex: {
@@ -634,6 +621,8 @@ let currentPageId = "home";
 let shouldAnimatePageContent = false;
 let shouldAnimateNavDeploy = false;
 let draggedPageId = "";
+let headerEditorOpen = false;
+let headerResizeSession = null;
 
 const headerContent = document.getElementById("headerContent");
 const footerContent = document.getElementById("footerContent");
@@ -647,6 +636,8 @@ const headerSocials = document.getElementById("headerSocials");
 const pageNav = document.getElementById("pageNav");
 const headerModeToggle = document.getElementById("headerModeToggle");
 const siteHeader = document.querySelector(".site-header");
+const headerResizeHandle = document.getElementById("headerResizeHandle");
+const headerEditorMount = document.getElementById("headerEditorMount");
 
 function createId(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -1719,21 +1710,35 @@ function renderHeader() {
   brand.appendChild(wrapper);
   headerContent.appendChild(brand);
 
+  if (headerEditorMount) {
+    headerEditorMount.innerHTML = "";
+    if (adminMode) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = `btn btn-outline btn-compact header-editor-toggle${headerEditorOpen ? " is-open" : ""}`;
+      toggle.textContent = "Edit Header";
+      toggle.addEventListener("click", () => {
+        headerEditorOpen = !headerEditorOpen;
+        renderHeader();
+      });
+      headerEditorMount.appendChild(toggle);
+      if (headerEditorOpen) {
+        const panel = document.createElement("div");
+        panel.className = "header-editor-panel panel";
+        const panelBody = document.createElement("div");
+        panelBody.className = "panel-body";
+        panelBody.appendChild(createHeaderMediaSection());
+        panel.appendChild(panelBody);
+        headerEditorMount.appendChild(panel);
+      }
+    }
+  }
+
   renderAdminBox();
   renderHeaderSocials();
 }
 
-function renderAdminBox() {
-  if (!adminBox) {
-    return;
-  }
-  adminBox.innerHTML = "";
-  if (!adminMode) {
-    return;
-  }
-
-  const isHomePage = currentPageId === "home";
-
+function createHeaderMediaSection() {
   const headerSection = document.createElement("div");
   headerSection.className = "admin-section";
   const headerTitle = document.createElement("div");
@@ -1856,6 +1861,19 @@ function renderAdminBox() {
   });
   headerSection.appendChild(socialsRow);
 
+  return headerSection;
+}
+
+function renderAdminBox() {
+  if (!adminBox) {
+    return;
+  }
+  adminBox.innerHTML = "";
+  if (!adminMode) {
+    return;
+  }
+
+  const isHomePage = currentPageId === "home";
 
   let onlineSection = null;
   if (!ONLINE_BUILD) {
@@ -2083,22 +2101,8 @@ function renderAdminBox() {
   blockRow.appendChild(addShipMeta);
   actionSection.appendChild(blockRow);
 
-  const note = document.createElement("p");
-  note.className = "admin-note";
-  note.textContent = isHomePage ? "Edits auto-save to localStorage on this device. Use ZIP exports for offline or online builds." : "Sub-page admin tools are page-local.";
-  actionSection.appendChild(note);
-
-  if (isHomePage) {
-    const headerDetails = document.createElement("details");
-    headerDetails.className = "admin-details";
-    const summary = document.createElement("summary");
-    summary.textContent = "Edit Header";
-    headerDetails.appendChild(summary);
-    headerDetails.appendChild(headerSection);
-    adminBox.appendChild(headerDetails);
-    if (onlineSection) {
-      adminBox.appendChild(onlineSection);
-    }
+  if (isHomePage && onlineSection) {
+    adminBox.appendChild(onlineSection);
   }
   adminBox.appendChild(actionSection);
 }
@@ -2156,6 +2160,77 @@ function renderHeaderActions() {
     stack.appendChild(difficulty);
     headerModeToggle.appendChild(stack);
   }
+}
+
+function updatePageNavIndicator() {
+  if (!pageNav) {
+    return;
+  }
+  const indicator = pageNav.querySelector(".page-nav-indicator");
+  const activeLink = pageNav.querySelector("a.is-active");
+  if (!indicator || !activeLink) {
+    return;
+  }
+  const navRect = pageNav.getBoundingClientRect();
+  const linkRect = activeLink.getBoundingClientRect();
+  indicator.style.width = `${linkRect.width}px`;
+  indicator.style.transform = `translateX(${linkRect.left - navRect.left}px)`;
+  indicator.style.opacity = "1";
+}
+
+function loadStoredHeaderHeight() {
+  const value = Number(localStorage.getItem(HEADER_HEIGHT_KEY));
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(HEADER_HEIGHT_MIN, Math.min(HEADER_HEIGHT_MAX, value));
+}
+
+function applyHeaderHeight(value) {
+  if (!siteHeader) {
+    return;
+  }
+  const clamped = Math.max(HEADER_HEIGHT_MIN, Math.min(HEADER_HEIGHT_MAX, value));
+  siteHeader.style.height = `${clamped}px`;
+  localStorage.setItem(HEADER_HEIGHT_KEY, String(clamped));
+  updateScrollOffset();
+}
+
+function initializeHeaderResize() {
+  const saved = loadStoredHeaderHeight();
+  if (saved) {
+    applyHeaderHeight(saved);
+  }
+  if (!headerResizeHandle || !siteHeader) {
+    return;
+  }
+  headerResizeHandle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    headerResizeSession = {
+      startY: event.clientY,
+      startHeight: siteHeader.offsetHeight,
+    };
+    headerResizeHandle.classList.add("is-dragging");
+    document.body.classList.add("resizing-header");
+    headerResizeHandle.setPointerCapture(event.pointerId);
+  });
+
+  const stopResize = () => {
+    headerResizeSession = null;
+    headerResizeHandle.classList.remove("is-dragging");
+    document.body.classList.remove("resizing-header");
+  };
+
+  headerResizeHandle.addEventListener("pointermove", (event) => {
+    if (!headerResizeSession) {
+      return;
+    }
+    const delta = event.clientY - headerResizeSession.startY;
+    applyHeaderHeight(headerResizeSession.startHeight + delta);
+  });
+
+  headerResizeHandle.addEventListener("pointerup", stopResize);
+  headerResizeHandle.addEventListener("pointercancel", stopResize);
 }
 
 function getHeaderSizeText() {
@@ -2555,8 +2630,20 @@ function renderPageNav() {
   if (!pageNav) return;
   pageNav.innerHTML = "";
 
+  const indicator = document.createElement("span");
+  indicator.className = "page-nav-indicator";
+  pageNav.appendChild(indicator);
+
   const pages = getVisiblePageDefinitions();
   pages.forEach((page, index) => {
+    if (index === 1) {
+      const separator = document.createElement("span");
+      separator.className = "page-nav-separator";
+      separator.textContent = "|";
+      separator.setAttribute("aria-hidden", "true");
+      pageNav.appendChild(separator);
+    }
+
     const link = document.createElement("a");
     link.href = `#${page.id}`;
     link.textContent = page.navLabel || page.title;
@@ -2600,6 +2687,8 @@ function renderPageNav() {
 
     pageNav.appendChild(link);
   });
+
+  requestAnimationFrame(updatePageNavIndicator);
 }
 
 function renderHomePage() {
@@ -4312,6 +4401,16 @@ function renderCalloutCard(item, options = {}) {
   header.className = "callout-header";
   header.addEventListener("click", () => {
     const expanded = !card.classList.contains("expanded");
+    const groupScope = card.closest(".study-subbox-grid") || card.parentElement;
+    if (expanded && groupScope) {
+      groupScope.querySelectorAll(".callout-card.expanded").forEach((openCard) => {
+        openCard.classList.remove("expanded");
+        const openId = openCard.dataset.cardId;
+        if (openId) {
+          setExpanded(openId, false);
+        }
+      });
+    }
     card.classList.toggle("expanded", expanded);
     setExpanded(cardId, expanded);
   });
@@ -4365,12 +4464,19 @@ function renderCalloutCard(item, options = {}) {
   const body = document.createElement("div");
   body.className = "callout-body";
 
+  const expandedTitle = document.createElement("div");
+  expandedTitle.className = "callout-expanded-title span-two";
+  expandedTitle.textContent = item.callName || "Element";
+  body.appendChild(expandedTitle);
+
   if (editable) {
     body.appendChild(
     renderField("Element name", item.callName, (value) => {
         const previousId = card.dataset.cardId;
         item.callName = value;
-        name.textContent = value || "New Element";
+        const safeName = value || "New Element";
+        name.textContent = safeName;
+        expandedTitle.textContent = safeName;
         const nextId = `${item.groupId}-${item.callName}`;
         card.dataset.cardId = nextId;
         if (previousId && expandedIds.has(previousId)) {
@@ -4456,22 +4562,24 @@ function renderCalloutCard(item, options = {}) {
     body.appendChild(addSub);
   }
 
-  const groups = getCalloutGroups();
-  body.appendChild(
-    renderSelect(
-      "Sub-Box",
-      item.groupId,
-      groups.map((group) => ({ label: group.title, value: group.id })),
-      (value) => {
-        item.groupId = value;
-        render();
-      },
-      {
-        editable: editable,
-        className: "half",
-      }
-    )
-  );
+  if (editable) {
+    const groups = getCalloutGroups();
+    body.appendChild(
+      renderSelect(
+        "Sub-Box",
+        item.groupId,
+        groups.map((group) => ({ label: group.title, value: group.id })),
+        (value) => {
+          item.groupId = value;
+          render();
+        },
+        {
+          editable: editable,
+          className: "half",
+        }
+      )
+    );
+  }
 
   const calloutVideos = renderVideoSection(item, { panelPadding: false, editable: editable, inCallout: true });
   if (calloutVideos) {
@@ -5695,10 +5803,10 @@ function buildViewerBlock(block, sourceState) {
               </div>
             </div>
             <div class="${bodyClass}">
+              <div class="callout-expanded-title span-two">${escapeHtml(callout.callName || "Element")}</div>
               ${viewerField("Context", callout.context, "half")}
               ${viewerFieldMultiline("When to use", callout.whenToUse, "half")}
               ${viewerField("Meaning", callout.meaning, "half")}
-              ${viewerField("Sub-Box", block.title, "half")}
               ${viewerField("Expected Outcome", callout.responseExpected, "span-two")}
               ${calloutVideos ? `<div class="span-two">${calloutVideos}</div>` : ""}
               ${calloutImage}
@@ -5981,9 +6089,11 @@ if (adminToggle) {
 
 window.addEventListener("resize", () => {
   updateScrollOffset();
+  updatePageNavIndicator();
 });
 
 try {
+  initializeHeaderResize();
   setTheme(activeTheme);
   setViewMode(activeMode);
   syncPageFromHash();
