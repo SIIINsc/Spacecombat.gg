@@ -2228,3 +2228,121 @@ main, .panel, .panel-body, .flow-card, .rule-card, .ship-meta-subbox, .callout-c
     grid-template-columns: 1fr;
   }
 }
+
+/* UX corrections: information cards, nav pills, ship meta spacing, study shell */
+.rule-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rule-card h3 {
+  margin: 0;
+}
+
+.rule-card .rule-subtitle {
+  font-size: 0.78rem;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.rule-card .rule-body {
+  margin-top: 0.1rem;
+  padding-top: 0.35rem;
+  flex: 1;
+}
+
+.rule-media .flow-image,
+.rule-media .local-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: transparent;
+}
+
+.ship-meta-signatures-compact {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.28rem;
+}
+
+.ship-meta-signature-cluster,
+.ship-meta-signature-damage {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.ship-meta-signature-cluster {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ship-meta-signature-damage {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ship-meta-v-sep {
+  width: 1px;
+  min-width: 1px;
+  background: rgba(155, 176, 201, 0.5);
+}
+
+.study-box-shell {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.study-box-shell .category-header {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.4rem;
+}
+
+.page-nav {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  gap: 0.2rem;
+}
+
+.page-nav a {
+  border: none;
+  border-radius: 8px;
+  padding: 0.3rem 0.62rem;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.page-nav a.is-active {
+  color: var(--text);
+  background: rgba(76, 195, 255, 0.16);
+  border: none;
+}
+
+.category-nav {
+  width: fit-content;
+  margin-inline: auto;
+  padding: 0.16rem;
+  border-radius: 9px;
+  background: rgba(21, 27, 37, 0.82);
+}
+
+.category-nav a {
+  border-radius: 7px;
+}
+
+.home-tile {
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.home-tile-title {
+  font-size: clamp(1.55rem, 2vw, 1.95rem);
+  min-height: 100%;
+  align-items: center;
+}
