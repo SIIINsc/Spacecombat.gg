@@ -30,7 +30,7 @@ const DEFAULT_SUB_ELEMENTS = [
   "Context",
   "Meaning",
 ];
-const DEFAULT_THEME_NAME = "default";
+const DEFAULT_THEME_NAME = "stanton";
 
 const CORE_PAGE_DEFINITIONS = {
   home: { id: "home", title: "Home", navLabel: "Home" },
@@ -41,13 +41,14 @@ const CORE_PAGE_DEFINITIONS = {
 
 const DEFAULT_STATE = {
   header: {
-    eyebrow: "Star Citizen",
-    title: "Space Combat Learning Platform",
-    subtitle: "Concise, standardized call-outs for fast, precise coordination.",
+    eyebrow: "Spacecombat.gg",
+    title: "Space Combat Doctrine Platform",
+    subtitle: "Structured training and data-driven meta for Star Citizen competitive players.",
     intro: "Doctrine-grade phrasing for tight, unambiguous team coordination.",
     logoSrc: "",
     logoAlt: "Header logo",
     backgroundSrc: "",
+    themeBackgrounds: {},
     socialIcons: [
       { src: "", url: "" },
       { src: "", url: "" },
@@ -507,7 +508,7 @@ const DEFAULT_STATE = {
 };
 
 const THEMES = {
-  default: {
+  stanton: {
     label: "Stanton",
     colors: {
       "--bg": "#090c12",
@@ -524,7 +525,7 @@ const THEMES = {
     },
   },
   grimhex: {
-    label: "Grimhex",
+    label: "Grimex",
     colors: {
       "--bg": "#0b0c0f",
       "--panel": "#14161b",
@@ -541,54 +542,6 @@ const THEMES = {
   },
   pyro: {
     label: "Pyro",
-    colors: {
-      "--bg": "#0e0c0a",
-      "--panel": "#171512",
-      "--panel-elev": "#201d19",
-      "--line": "#2f2a24",
-      "--text": "#f2e8dc",
-      "--muted": "#b5a79a",
-      "--accent": "#c7864c",
-      "--accent-strong": "#d5a061",
-      "--danger": "#c5604a",
-      "--success": "#b99a5a",
-      "--warning": "#d1a35f",
-    },
-  },
-  avs: {
-    label: "AVS",
-    colors: {
-      "--bg": "#09101e",
-      "--panel": "#111d33",
-      "--panel-elev": "#172844",
-      "--line": "#2f4163",
-      "--text": "#e8edf7",
-      "--muted": "#a7b5cd",
-      "--accent": "#5daeff",
-      "--accent-strong": "#8ac4ff",
-      "--danger": "#cf6f79",
-      "--success": "#78bea5",
-      "--warning": "#c6b48e",
-    },
-  },
-  blightveil: {
-    label: "Blightveil",
-    colors: {
-      "--bg": "#09070f",
-      "--panel": "#131026",
-      "--panel-elev": "#1b1533",
-      "--line": "#2f2a48",
-      "--text": "#e6e2f4",
-      "--muted": "#a9a2c3",
-      "--accent": "#6759b8",
-      "--accent-strong": "#8475d1",
-      "--danger": "#a05e76",
-      "--success": "#6ea49a",
-      "--warning": "#b19a7a",
-    },
-  },
-  shadowMoses: {
-    label: "Shadow Moses",
     colors: {
       "--bg": "#070607",
       "--panel": "#141013",
@@ -634,6 +587,7 @@ const pageNav = document.getElementById("pageNav");
 const headerModeToggle = document.getElementById("headerModeToggle");
 const siteHeader = document.querySelector(".site-header");
 const studyHoverCloseTimers = new Map();
+let headerBgTransitionTimer = null;
 
 function createId(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -818,9 +772,6 @@ function createDefaultHeroColumn() {
 }
 
 function createMetaPage(pageId, title) {
-  const defaultBlocks = pageId === "meta-space"
-    ? [createBlankInfoBlock(), createBlankShipMetaBlock()]
-    : [createBlankInfoBlock()];
   return {
     id: pageId,
     title,
@@ -829,7 +780,7 @@ function createMetaPage(pageId, title) {
       subtitle: "",
       items: [createDefaultHeroItem("text")],
     },
-    blocks: defaultBlocks,
+    blocks: [createBlankInfoBlock()],
     callouts: [],
   };
 }
@@ -843,7 +794,7 @@ function createDefaultProtocolPage() {
       subtitle: "",
       items: [createDefaultHeroItem("text")],
     },
-    blocks: [createBlankInfoBlock(), createBlankExampleBlock(), createBlankStudyBlock()],
+    blocks: [createBlankInfoBlock()],
     callouts: [],
   };
 }
@@ -870,8 +821,6 @@ function migrateToPages(nextState) {
     return nextState;
   }
   const protocolPage = createDefaultProtocolPage();
-  protocolPage.blocks = nextState.blocks || protocolPage.blocks;
-  protocolPage.callouts = nextState.callouts || [];
   nextState.pages = {
     protocol: protocolPage,
     "meta-space": createMetaPage("meta-space", CORE_PAGE_DEFINITIONS["meta-space"].title),
@@ -1051,6 +1000,9 @@ function normalizeState(source) {
   if (typeof nextState.header.backgroundSrc !== "string") {
     nextState.header.backgroundSrc = "";
   }
+  if (!nextState.header.themeBackgrounds || typeof nextState.header.themeBackgrounds !== "object") {
+    nextState.header.themeBackgrounds = {};
+  }
   if (!Array.isArray(nextState.header.socialIcons)) {
     nextState.header.socialIcons = deepClone(DEFAULT_STATE.header.socialIcons);
   } else {
@@ -1068,6 +1020,8 @@ function normalizeState(source) {
   };
   nextState.ui.theme = resolveThemeName(nextState.ui.theme || DEFAULT_THEME_NAME);
   nextState.ui.viewMode = normalizeViewMode(nextState.ui.viewMode || "basic");
+  nextState.header.themeBackgrounds[nextState.ui.theme] = nextState.header.themeBackgrounds[nextState.ui.theme] || nextState.header.backgroundSrc || "";
+  nextState.header.backgroundSrc = nextState.header.themeBackgrounds[nextState.ui.theme] || "";
   nextState.roleLabels = normalizeRoleLabels(nextState.roleLabels);
   const defaultAccounts = deepClone(DEFAULT_STATE.onlineAuth);
   const sourceAuth = Array.isArray(nextState.onlineAuth)
@@ -1134,16 +1088,14 @@ function normalizeState(source) {
     const protocol = nextState.pages.protocol;
     protocol.title = CORE_PAGE_DEFINITIONS.protocol.title;
     if (protocol.hero) protocol.hero.title = CORE_PAGE_DEFINITIONS.protocol.title;
-    if (!Array.isArray(protocol.blocks) || !protocol.blocks.length) {
-      protocol.blocks = [createBlankInfoBlock(), createBlankExampleBlock(), createBlankStudyBlock()];
-    }
+    protocol.blocks = [createBlankInfoBlock()];
+    protocol.callouts = [];
   }
-  if (nextState.pages["meta-space"]) {
-    const shipPage = nextState.pages["meta-space"];
-    if (!Array.isArray(shipPage.blocks) || !shipPage.blocks.length) {
-      shipPage.blocks = [createBlankInfoBlock(), createBlankShipMetaBlock()];
-    }
-  }
+  Object.keys(nextState.pages).forEach((pageId) => {
+    if (pageId === "protocol") return;
+    nextState.pages[pageId].blocks = [createBlankInfoBlock()];
+    nextState.pages[pageId].callouts = [];
+  });
 
   return nextState;
 }
@@ -1391,6 +1343,10 @@ function resolveThemeName(themeName) {
     green: "grimhex",
     amber: "pyro",
     violet: "stanton",
+    default: "stanton",
+    shadowMoses: "pyro",
+    avs: "stanton",
+    blightveil: "pyro",
   };
   const normalized = legacyMap[themeName] || themeName;
   return THEMES[normalized] ? normalized : DEFAULT_THEME_NAME;
@@ -1416,12 +1372,19 @@ function applyTheme(themeName) {
 }
 
 function setTheme(themeName) {
+  if (state?.header?.themeBackgrounds && activeTheme) {
+    state.header.themeBackgrounds[activeTheme] = state.header.backgroundSrc || "";
+  }
   activeTheme = THEMES[themeName] ? themeName : DEFAULT_THEME_NAME;
   localStorage.setItem(THEME_KEY, activeTheme);
   if (state.ui) {
     state.ui.theme = activeTheme;
   }
+  const nextHeaderBg = state?.header?.themeBackgrounds?.[activeTheme] || "";
+  state.header.backgroundSrc = nextHeaderBg;
   applyTheme(activeTheme);
+  applyHeaderBackground(nextHeaderBg, true);
+  renderHeader();
 }
 
 function applyViewMode() {
@@ -1604,15 +1567,7 @@ function getCalloutGroups() {
 
 function renderHeader() {
   headerContent.innerHTML = "";
-  if (siteHeader) {
-    if (state.header.backgroundSrc) {
-      siteHeader.classList.add("has-bg");
-      siteHeader.style.setProperty("--header-bg", `url('${state.header.backgroundSrc}')`);
-    } else {
-      siteHeader.classList.remove("has-bg");
-      siteHeader.style.removeProperty("--header-bg");
-    }
-  }
+  applyHeaderBackground(state.header.backgroundSrc, false);
   const brand = document.createElement("div");
   brand.className = `header-brand${state.header.logoSrc ? "" : " no-logo"}`;
 
@@ -1632,15 +1587,15 @@ function renderHeader() {
   wrapper.appendChild(
     renderEditableText("div", state.header.eyebrow, (value) => {
       state.header.eyebrow = value;
-    }, { className: "eyebrow header-eyebrow", placeholder: "Star Citizen" })
+    }, { className: "eyebrow header-eyebrow", placeholder: "Spacecombat.gg" })
   );
 
-  const title = document.createElement("h1");
-  title.className = "header-title";
-  title.textContent = state.header.title;
-  const subhead = document.createElement("p");
-  subhead.className = "subhead header-subtitle-multiline";
-  subhead.textContent = state.header.subtitle;
+  const title = renderEditableText("h1", state.header.title, (value) => {
+    state.header.title = value;
+  }, { className: "header-title", placeholder: "Space Combat Doctrine Platform" });
+  const subhead = renderEditableText("p", state.header.subtitle, (value) => {
+    state.header.subtitle = value;
+  }, { className: "subhead header-subtitle-multiline", placeholder: "Structured training and data-driven meta for Star Citizen competitive players.", multiline: true });
   wrapper.appendChild(title);
   wrapper.appendChild(subhead);
 
@@ -1658,30 +1613,6 @@ function createHeaderMediaSection() {
   headerTitle.className = "admin-section-title";
   headerTitle.textContent = "Header";
   headerSection.appendChild(headerTitle);
-
-  const textRow = document.createElement("div");
-  textRow.className = "admin-row";
-  const titleInput = document.createElement("input");
-  titleInput.type = "text";
-  titleInput.className = "panel-title-input";
-  titleInput.placeholder = "Header title";
-  titleInput.value = state.header.title || "";
-  titleInput.addEventListener("input", () => {
-    state.header.title = titleInput.value;
-    renderHeader();
-  });
-  const subtitleInput = document.createElement("textarea");
-  subtitleInput.className = "panel-title-input";
-  subtitleInput.rows = 2;
-  subtitleInput.placeholder = "Header subtitle";
-  subtitleInput.value = state.header.subtitle || "";
-  subtitleInput.addEventListener("input", () => {
-    state.header.subtitle = subtitleInput.value;
-    renderHeader();
-  });
-  textRow.appendChild(titleInput);
-  textRow.appendChild(subtitleInput);
-  headerSection.appendChild(textRow);
 
   const logoRow = document.createElement("div");
   logoRow.className = "admin-row";
@@ -1751,7 +1682,9 @@ function createHeaderMediaSection() {
       const reader = new FileReader();
       reader.onload = () => {
         state.header.backgroundSrc = reader.result;
-        render();
+        state.header.themeBackgrounds[activeTheme] = reader.result;
+        applyHeaderBackground(reader.result, true);
+        saveState();
       };
       reader.readAsDataURL(file);
     }
@@ -1763,7 +1696,9 @@ function createHeaderMediaSection() {
   bgClearBtn.textContent = "Remove";
   bgClearBtn.addEventListener("click", () => {
     state.header.backgroundSrc = "";
-    render();
+    state.header.themeBackgrounds[activeTheme] = "";
+    applyHeaderBackground("", true);
+    saveState();
   });
   const bgSize = document.createElement("span");
   bgSize.className = "admin-note";
@@ -2133,13 +2068,20 @@ function renderHeaderActions() {
     [
       { id: "basic", label: "Basic" },
       { id: "advanced", label: "Advanced" },
+      { id: "premium", label: "Premium 🔒", locked: true },
     ].forEach((mode) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `mode-btn${activeMode === mode.id ? " is-active" : ""}`;
       button.textContent = mode.label;
       button.setAttribute("aria-pressed", activeMode === mode.id ? "true" : "false");
-      button.addEventListener("click", () => setViewMode(mode.id));
+      if (mode.locked) {
+        button.classList.add("is-locked");
+        button.disabled = true;
+        button.title = "Premium is locked";
+      } else {
+        button.addEventListener("click", () => setViewMode(mode.id));
+      }
       wrap.appendChild(button);
     });
     stack.appendChild(wrap);
@@ -2197,6 +2139,36 @@ function updateCategoryNavIndicator() {
   indicator.style.transform = `translateX(${nextX}px)`;
   indicator.style.opacity = "1";
   categoryNavIndicatorState = { x: nextX, width: nextWidth };
+}
+
+function applyHeaderBackground(src, withFade = true) {
+  if (!siteHeader) return;
+  if (headerBgTransitionTimer) {
+    clearTimeout(headerBgTransitionTimer);
+    headerBgTransitionTimer = null;
+  }
+  const setBackground = () => {
+    if (src) {
+      siteHeader.classList.add("has-bg");
+      siteHeader.style.setProperty("--header-bg", `url('${src}')`);
+    } else {
+      siteHeader.classList.remove("has-bg");
+      siteHeader.style.removeProperty("--header-bg");
+    }
+  };
+  if (!withFade) {
+    setBackground();
+    siteHeader.style.setProperty("--header-bg-opacity", "1");
+    return;
+  }
+  siteHeader.style.setProperty("--header-bg-opacity", "0");
+  headerBgTransitionTimer = setTimeout(() => {
+    setBackground();
+    requestAnimationFrame(() => {
+      siteHeader.style.setProperty("--header-bg-opacity", "1");
+    });
+    headerBgTransitionTimer = null;
+  }, 160);
 }
 
 function getHeaderSizeText() {
@@ -2312,6 +2284,38 @@ function createVideoUploadControl(labelText, onLoad, onClear, className = "") {
     wrapper.appendChild(removeBtn);
   }
 
+  return wrapper;
+}
+
+function createMediaUploadControl(labelText, onLoad, onClear, className = "") {
+  const wrapper = document.createElement("div");
+  wrapper.className = `image-upload${className ? ` ${className}` : ""}`;
+  const uploadLabel = document.createElement("label");
+  uploadLabel.className = "btn btn-outline btn-compact";
+  uploadLabel.textContent = labelText;
+  const uploadInput = document.createElement("input");
+  uploadInput.type = "file";
+  uploadInput.accept = "image/gif,video/*";
+  uploadInput.id = createId("media-upload");
+  uploadLabel.setAttribute("for", uploadInput.id);
+  uploadInput.addEventListener("change", () => {
+    const file = uploadInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onLoad(reader.result, file.type || "");
+    reader.readAsDataURL(file);
+    uploadInput.value = "";
+  });
+  wrapper.appendChild(uploadLabel);
+  wrapper.appendChild(uploadInput);
+  if (onClear) {
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn btn-ghost btn-compact";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => onClear());
+    wrapper.appendChild(removeBtn);
+  }
   return wrapper;
 }
 
@@ -2782,14 +2786,8 @@ function renderHomePage() {
         render();
       }));
 
-      controls.appendChild(createImageUploadControl("Upload hover image / gif", (src) => {
-        subPage.mediaType = (src || "").startsWith("data:image/gif") ? "gif" : "image";
-        subPage.backgroundSrc = src;
-        render();
-      }));
-
-      controls.appendChild(createVideoUploadControl("Upload hover video", (src) => {
-        subPage.mediaType = "video";
+      controls.appendChild(createMediaUploadControl("Upload hover media (GIF/Video)", (src, type) => {
+        subPage.mediaType = type.startsWith("video/") ? "video" : "gif";
         subPage.backgroundSrc = src;
         render();
       }));
@@ -2910,6 +2908,12 @@ function render() {
 
   if (currentPageId === "home") {
     renderHomePage();
+    if (shouldAnimatePageContent) {
+      Array.from(blocksContainer.children).forEach((node, index) => {
+        node.style.setProperty("--stagger-index", String(index));
+      });
+      requestAnimationFrame(() => blocksContainer.classList.add("page-content-enter"));
+    }
     if (document.querySelector(".study-overlay-callout.expanded")) {
       ensureStudyOverlayBackdrop();
     } else {
@@ -2947,6 +2951,9 @@ function render() {
   });
 
   if (shouldAnimatePageContent) {
+    Array.from(blocksContainer.children).forEach((node, index) => {
+      node.style.setProperty("--stagger-index", String(index));
+    });
     requestAnimationFrame(() => blocksContainer.classList.add("page-content-enter"));
   }
   updateScrollOffset();
@@ -3496,8 +3503,7 @@ function renderShipMetaBlock(block, index) {
 
   block.metaItems = Array.isArray(block.metaItems) && block.metaItems.length ? block.metaItems : [createBlankShipMetaItem()];
   block.metaItems.forEach((metaItem, metaIndex) => {
-    const activeMode = metaItem.activeMode === "pu" ? "pu" : "premium";
-    const modeData = metaItem.modes?.[activeMode] || createBlankShipMetaItem().modes.premium;
+    let activeMode = metaItem.activeMode === "pu" ? "pu" : "premium";
     const card = document.createElement("article");
     card.className = "ship-meta-subbox";
     if (metaItem.backgroundSrc) {
@@ -3567,8 +3573,13 @@ function renderShipMetaBlock(block, index) {
       btn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (activeMode === entry.value) return;
         metaItem.activeMode = entry.value;
-        rerenderPreservingScroll();
+        activeMode = entry.value;
+        modeToggle.querySelectorAll(".mode-btn").forEach((item) => {
+          item.classList.toggle("is-active", item === btn);
+        });
+        renderModeContent();
       });
       modeToggle.appendChild(btn);
     });
@@ -3580,13 +3591,20 @@ function renderShipMetaBlock(block, index) {
     topRow.appendChild(infoBtn);
     card.appendChild(topRow);
 
+    const modeContent = document.createElement("div");
+    modeContent.className = "ship-meta-mode-content";
+
     if (editing) {
       card.appendChild(createImageUploadControl(metaItem.backgroundSrc ? "Replace sub-box background" : "Upload sub-box background", (src) => { metaItem.backgroundSrc = src; render(); }, metaItem.backgroundSrc ? () => { metaItem.backgroundSrc = ""; render(); } : null));
     }
 
-    const components = document.createElement("div");
-    components.className = "ship-meta-components-list";
-    (modeData.components || []).forEach((row) => {
+    const renderModeContent = () => {
+      const modeData = metaItem.modes?.[activeMode] || createBlankShipMetaItem().modes.premium;
+      modeContent.innerHTML = "";
+
+      const components = document.createElement("div");
+      components.className = "ship-meta-components-list";
+      (modeData.components || []).forEach((row) => {
       const rowEl = document.createElement("div");
       rowEl.className = "ship-meta-component-row-compact";
       const left = document.createElement("div");
@@ -3620,13 +3638,13 @@ function renderShipMetaBlock(block, index) {
         buy.textContent = row.whereToBuy ? `${getShipMetaIcon("buy")} ${row.whereToBuy}` : "–";
       }
       rowEl.appendChild(buy);
-      components.appendChild(rowEl);
-    });
-    card.appendChild(components);
+        components.appendChild(rowEl);
+      });
+      modeContent.appendChild(components);
 
-    const lifeSupportRow = document.createElement("div");
-    lifeSupportRow.className = "ship-meta-inline-flag";
-    if (editing) {
+      const lifeSupportRow = document.createElement("div");
+      lifeSupportRow.className = "ship-meta-inline-flag";
+      if (editing) {
       const lsToggle = document.createElement("label");
       lsToggle.className = "ship-meta-ls-toggle";
       const lsInput = document.createElement("input");
@@ -3647,12 +3665,12 @@ function renderShipMetaBlock(block, index) {
       flag.textContent = `${getShipMetaIcon("lifeSupport")} LS Off`;
       lifeSupportRow.appendChild(flag);
     }
-    if (lifeSupportRow.childNodes.length) {
-      card.appendChild(lifeSupportRow);
-    }
+      if (lifeSupportRow.childNodes.length) {
+        modeContent.appendChild(lifeSupportRow);
+      }
 
-    const signatures = document.createElement("div");
-    signatures.className = "ship-meta-signatures-compact";
+      const signatures = document.createElement("div");
+      signatures.className = "ship-meta-signatures-compact";
     const leftSig = document.createElement("div");
     leftSig.className = "ship-meta-signature-cluster";
     leftSig.appendChild(renderField(`${getShipMetaIcon("em")} EM`, modeData.signatures?.em, (value) => { modeData.signatures.em = value; }, { editable: editing, type: "number" }));
@@ -3664,12 +3682,15 @@ function renderShipMetaBlock(block, index) {
     rightSig.className = "ship-meta-signature-damage";
     rightSig.appendChild(renderField("Sustained DPS", modeData.signatures?.sustainedDps, (value) => { modeData.signatures.sustainedDps = value; }, { editable: editing, type: "number" }));
     rightSig.appendChild(renderField("Alpha Damage", modeData.signatures?.alphaDamage, (value) => { modeData.signatures.alphaDamage = value; }, { editable: editing, type: "number" }));
-    signatures.appendChild(leftSig);
-    signatures.appendChild(sep);
-    signatures.appendChild(rightSig);
-    card.appendChild(signatures);
+      signatures.appendChild(leftSig);
+      signatures.appendChild(sep);
+      signatures.appendChild(rightSig);
+      modeContent.appendChild(signatures);
 
-    card.appendChild(renderField("Meta summary", modeData.summary, (value) => { modeData.summary = value; }, { editable: editing, type: "textarea", className: "span-two" }));
+      modeContent.appendChild(renderField("Meta summary", modeData.summary, (value) => { modeData.summary = value; }, { editable: editing, type: "textarea", className: "span-two" }));
+    };
+    renderModeContent();
+    card.appendChild(modeContent);
 
     if (editing) {
       const actions = document.createElement("div");
@@ -5189,7 +5210,7 @@ function buildViewerHtml(sourceState, styles) {
       }
 
       function setTheme(themeName) {
-        const next = THEMES[themeName] ? themeName : 'default';
+        const next = THEMES[themeName] ? themeName : '${DEFAULT_THEME_NAME}';
         localStorage.setItem(THEME_KEY, next);
         applyTheme(next);
         if (themeSelect) {
