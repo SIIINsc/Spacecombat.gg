@@ -34,7 +34,7 @@ const DEFAULT_THEME_NAME = "default";
 
 const CORE_PAGE_DEFINITIONS = {
   home: { id: "home", title: "Home", navLabel: "Home" },
-  protocol: { id: "protocol", title: "Team flight Communication", navLabel: "Team flight Communication" },
+  protocol: { id: "protocol", title: "Team Fight Communication", navLabel: "Communication" },
   "meta-space": { id: "meta-space", title: "Ship meta", navLabel: "Ship meta" },
   "meta-fps": { id: "meta-fps", title: "FPS combat", navLabel: "FPS combat" },
 };
@@ -729,6 +729,26 @@ function createBlankInfoBlock() {
   };
 }
 
+function createBlankExampleBlock() {
+  return {
+    id: createId("flows"),
+    type: "flows",
+    title: "Example Box",
+    contextText: "",
+    flows: [],
+  };
+}
+
+function createBlankStudyBlock() {
+  return {
+    id: createId("group"),
+    type: "calloutGroup",
+    title: "Study Box",
+    contextText: "",
+    subBoxes: [{ id: createId("study-sub"), title: "Study Sub-Box", description: "" }],
+  };
+}
+
 
 function createBlankShipMetaBlock() {
   return {
@@ -799,7 +819,7 @@ function createDefaultHomePage() {
     blocks: [createBlankInfoBlock()],
     callouts: [],
     subPages: [
-      { id: "protocol", title: CORE_PAGE_DEFINITIONS.protocol.title, navLabel: CORE_PAGE_DEFINITIONS.protocol.navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
+      { id: "protocol", title: CORE_PAGE_DEFINITIONS.protocol.navLabel, navLabel: CORE_PAGE_DEFINITIONS.protocol.navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
       { id: "meta-space", title: CORE_PAGE_DEFINITIONS["meta-space"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-space"].navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
       { id: "meta-fps", title: CORE_PAGE_DEFINITIONS["meta-fps"].title, navLabel: CORE_PAGE_DEFINITIONS["meta-fps"].navLabel, backgroundSrc: "", staticSrc: "", mediaType: "" },
     ],
@@ -811,6 +831,9 @@ function createDefaultHeroColumn() {
 }
 
 function createMetaPage(pageId, title) {
+  const defaultBlocks = pageId === "meta-space"
+    ? [createBlankInfoBlock(), createBlankShipMetaBlock()]
+    : [createBlankInfoBlock()];
   return {
     id: pageId,
     title,
@@ -819,7 +842,21 @@ function createMetaPage(pageId, title) {
       subtitle: "",
       items: [createDefaultHeroItem("text")],
     },
-    blocks: [createBlankInfoBlock()],
+    blocks: defaultBlocks,
+    callouts: [],
+  };
+}
+
+function createDefaultProtocolPage() {
+  return {
+    id: "protocol",
+    title: CORE_PAGE_DEFINITIONS.protocol.title,
+    hero: {
+      title: CORE_PAGE_DEFINITIONS.protocol.title,
+      subtitle: "",
+      items: [createDefaultHeroItem("text")],
+    },
+    blocks: [createBlankInfoBlock(), createBlankExampleBlock(), createBlankStudyBlock()],
     callouts: [],
   };
 }
@@ -845,13 +882,9 @@ function migrateToPages(nextState) {
   if (nextState.pages && typeof nextState.pages === "object") {
     return nextState;
   }
-  const protocolPage = {
-    id: "protocol",
-    title: CORE_PAGE_DEFINITIONS.protocol.title,
-    hero: { title: CORE_PAGE_DEFINITIONS.protocol.title, subtitle: "", items: [createDefaultHeroItem("text")] },
-    blocks: nextState.blocks || [],
-    callouts: nextState.callouts || [],
-  };
+  const protocolPage = createDefaultProtocolPage();
+  protocolPage.blocks = nextState.blocks || protocolPage.blocks;
+  protocolPage.callouts = nextState.callouts || [];
   nextState.pages = {
     protocol: protocolPage,
     "meta-space": createMetaPage("meta-space", CORE_PAGE_DEFINITIONS["meta-space"].title),
@@ -988,8 +1021,12 @@ function ensureHomeSubPages(nextState) {
     .filter((entry) => entry && entry.id && entry.id !== "home")
     .map((entry, index) => ({
       id: entry.id,
-      title: typeof entry.title === "string" ? entry.title : `Sub Page ${index + 1}`,
-      navLabel: typeof entry.navLabel === "string" && entry.navLabel.trim() ? entry.navLabel : (typeof entry.title === "string" && entry.title.trim() ? entry.title.trim() : `Page ${index + 1}`),
+      title: entry.id === "protocol"
+        ? CORE_PAGE_DEFINITIONS.protocol.navLabel
+        : (typeof entry.title === "string" ? entry.title : `Sub Page ${index + 1}`),
+      navLabel: entry.id === "protocol"
+        ? CORE_PAGE_DEFINITIONS.protocol.navLabel
+        : (typeof entry.navLabel === "string" && entry.navLabel.trim() ? entry.navLabel : (typeof entry.title === "string" && entry.title.trim() ? entry.title.trim() : `Page ${index + 1}`)),
       backgroundSrc: typeof entry.backgroundSrc === "string" ? entry.backgroundSrc : "",
       staticSrc: typeof entry.staticSrc === "string" ? entry.staticSrc : (typeof entry.backgroundSrc === "string" ? entry.backgroundSrc : ""),
       mediaType: entry.mediaType === "video" ? "video" : (entry.mediaType === "gif" ? "gif" : "image"),
@@ -1091,8 +1128,35 @@ function normalizeState(source) {
     if (!nextState.pages[subPage.id]) {
       nextState.pages[subPage.id] = createMetaPage(subPage.id, subPage.title || subPage.navLabel || "New Sub Page");
     }
-    setSubPageDisplay(subPage.id, subPage.title || subPage.navLabel || "New Sub Page", nextState);
+    const label = subPage.title || subPage.navLabel || "New Sub Page";
+    if (subPage.id === "protocol") {
+      subPage.title = CORE_PAGE_DEFINITIONS.protocol.navLabel;
+      subPage.navLabel = CORE_PAGE_DEFINITIONS.protocol.navLabel;
+      if (nextState.pages[subPage.id]) {
+        nextState.pages[subPage.id].title = CORE_PAGE_DEFINITIONS.protocol.title;
+        if (nextState.pages[subPage.id].hero) {
+          nextState.pages[subPage.id].hero.title = CORE_PAGE_DEFINITIONS.protocol.title;
+        }
+      }
+    } else {
+      setSubPageDisplay(subPage.id, label, nextState);
+    }
   });
+
+  if (nextState.pages.protocol) {
+    const protocol = nextState.pages.protocol;
+    protocol.title = CORE_PAGE_DEFINITIONS.protocol.title;
+    if (protocol.hero) protocol.hero.title = CORE_PAGE_DEFINITIONS.protocol.title;
+    if (!Array.isArray(protocol.blocks) || !protocol.blocks.length) {
+      protocol.blocks = [createBlankInfoBlock(), createBlankExampleBlock(), createBlankStudyBlock()];
+    }
+  }
+  if (nextState.pages["meta-space"]) {
+    const shipPage = nextState.pages["meta-space"];
+    if (!Array.isArray(shipPage.blocks) || !shipPage.blocks.length) {
+      shipPage.blocks = [createBlankInfoBlock(), createBlankShipMetaBlock()];
+    }
+  }
 
   return nextState;
 }
@@ -1501,6 +1565,11 @@ function closeStudyOverlaysOnOutsideClick(event) {
 }
 
 document.addEventListener("pointerdown", closeStudyOverlaysOnOutsideClick, true);
+
+function rerenderPreservingScroll() {
+  pendingScrollY = window.scrollY;
+  render();
+}
 
 function toggleAdmin() {
   if (VIEWER_ONLY_BUILD) {
@@ -2490,7 +2559,7 @@ function renderPageNav() {
   pages.forEach((page, index) => {
     const link = document.createElement("a");
     link.href = `#${page.id}`;
-    link.textContent = page.title || page.navLabel;
+    link.textContent = page.navLabel || page.title;
     link.dataset.pageId = page.id;
     if (page.id === "home") link.classList.add("is-home-link");
     if (page.id === currentPageId) link.classList.add("is-active");
@@ -2536,8 +2605,8 @@ function renderPageNav() {
 function renderHomePage() {
   const home = state.home;
 
-  if (!Array.isArray(home.blocks) || !home.blocks.length) {
-    home.blocks = [createBlankInfoBlock()];
+  if (!Array.isArray(home.blocks)) {
+    home.blocks = [];
   }
   if (!Number.isInteger(home.navOrder)) {
     home.navOrder = 0;
@@ -2884,10 +2953,12 @@ function renderRulesBlock(block, index) {
       const media = renderRuleMedia(rulesSection, true);
       if (media) card.appendChild(media);
     } else {
-      const title = document.createElement("h3");
-      title.textContent = rulesSection.title;
-      card.appendChild(title);
-      if (rulesSection.subtitle) {
+      if (rulesSection.title && rulesSection.title.trim()) {
+        const title = document.createElement("h3");
+        title.textContent = rulesSection.title;
+        card.appendChild(title);
+      }
+      if (rulesSection.subtitle && rulesSection.subtitle.trim()) {
         const subtitle = document.createElement("p");
         subtitle.className = "rule-subtitle";
         subtitle.textContent = rulesSection.subtitle;
@@ -2900,18 +2971,16 @@ function renderRulesBlock(block, index) {
         .split("\n")
         .map((entry) => entry.trim())
         .filter(Boolean);
-      if (!paragraphs.length) {
-        const placeholder = document.createElement("p");
-        placeholder.textContent = "—";
-        bodyText.appendChild(placeholder);
-      } else {
+      if (paragraphs.length) {
         paragraphs.forEach((entry) => {
           const p = document.createElement("p");
           p.textContent = entry;
           bodyText.appendChild(p);
         });
       }
-      card.appendChild(bodyText);
+      if (paragraphs.length) {
+        card.appendChild(bodyText);
+      }
       const media = renderRuleMedia(rulesSection, false);
       if (media) card.appendChild(media);
     }
@@ -3417,7 +3486,7 @@ function renderShipMetaBlock(block, index) {
       btn.textContent = entry.label;
       btn.addEventListener("click", () => {
         metaItem.activeMode = entry.value;
-        render();
+        rerenderPreservingScroll();
       });
       modeToggle.appendChild(btn);
     });
@@ -3480,7 +3549,7 @@ function renderShipMetaBlock(block, index) {
         render();
       });
       const lsText = document.createElement("span");
-      lsText.textContent = "Life Support Off";
+      lsText.textContent = "Life Support Off Required";
       lsToggle.appendChild(lsInput);
       lsToggle.appendChild(lsText);
       lifeSupportRow.appendChild(lsToggle);
@@ -3932,7 +4001,7 @@ function renderFlowRow(flow, row, rowIndex, editing) {
 
 function renderCalloutGroupBlock(block, index) {
   const section = document.createElement("section");
-  section.className = "category-section callout-group-card";
+  section.className = "category-section callout-group-card study-box-shell";
   section.id = block.id;
   section.dataset.title = block.title || "Study Box";
   const editing = isBlockEditing(block.id);
@@ -4217,7 +4286,7 @@ function renderBlockActions(block, index, editing = false) {
       }
     }
     getPageBlocks().splice(index, 1);
-    render();
+    rerenderPreservingScroll();
   });
 
   actions.appendChild(editBtn);
