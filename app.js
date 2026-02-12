@@ -584,6 +584,8 @@ let shouldAnimatePageContent = false;
 let shouldAnimateNavDeploy = false;
 let draggedPageId = "";
 let sharedNavIndicatorTarget = null;
+const pinnedStudyCardIds = new Set();
+let studyOverlayBackdrop = null;
 
 const headerContent = document.getElementById("headerContent");
 const footerContent = document.getElementById("footerContent");
@@ -1545,14 +1547,33 @@ function collapseExpandedStudyOverlays() {
     const cardId = card.dataset.cardId;
     if (cardId) {
       setExpanded(cardId, false);
+      pinnedStudyCardIds.delete(cardId);
     }
   });
 }
 
 function ensureStudyOverlayBackdrop() {
+  if (studyOverlayBackdrop) {
+    studyOverlayBackdrop.classList.add("is-visible");
+    return;
+  }
+  studyOverlayBackdrop = document.createElement("div");
+  studyOverlayBackdrop.className = "study-overlay-backdrop is-visible";
+  studyOverlayBackdrop.setAttribute("aria-hidden", "true");
+  studyOverlayBackdrop.addEventListener("click", () => {
+    collapseExpandedStudyOverlays();
+    teardownStudyOverlayBackdrop();
+  });
+  document.body.appendChild(studyOverlayBackdrop);
 }
 
 function teardownStudyOverlayBackdrop() {
+  if (!studyOverlayBackdrop) {
+    return;
+  }
+  studyOverlayBackdrop.classList.remove("is-visible");
+  studyOverlayBackdrop.remove();
+  studyOverlayBackdrop = null;
 }
 
 function rerenderPreservingScroll() {
@@ -1640,8 +1661,15 @@ function createHeaderMediaSection() {
   headerSection.className = "admin-section";
   const headerTitle = document.createElement("div");
   headerTitle.className = "admin-section-title";
-  headerTitle.textContent = "Header";
+  headerTitle.textContent = "Header editing";
   headerSection.appendChild(headerTitle);
+
+  const mediaGroup = document.createElement("div");
+  mediaGroup.className = "admin-subgroup";
+  const mediaGroupTitle = document.createElement("div");
+  mediaGroupTitle.className = "admin-subtitle";
+  mediaGroupTitle.textContent = "Header Media";
+  mediaGroup.appendChild(mediaGroupTitle);
 
   const logoRow = document.createElement("div");
   logoRow.className = "admin-row";
@@ -1669,28 +1697,7 @@ function createHeaderMediaSection() {
     state.header.logoAlt = logoAltInput.value;
   });
   logoRow.appendChild(logoAltInput);
-  headerSection.appendChild(logoRow);
-
-  const themeRow = document.createElement("div");
-  themeRow.className = "admin-row";
-  const themeLabel = document.createElement("span");
-  themeLabel.className = "admin-note";
-  themeLabel.textContent = "Theme";
-  const headerThemeSelect = document.createElement("select");
-  headerThemeSelect.className = "panel-title-input";
-  Object.entries(THEMES).forEach(([key, theme]) => {
-    const option = document.createElement("option");
-    option.value = key;
-    option.textContent = theme.label;
-    option.selected = key === activeTheme;
-    headerThemeSelect.appendChild(option);
-  });
-  headerThemeSelect.addEventListener("change", () => {
-    setTheme(headerThemeSelect.value);
-  });
-  themeRow.appendChild(themeLabel);
-  themeRow.appendChild(headerThemeSelect);
-  headerSection.appendChild(themeRow);
+  mediaGroup.appendChild(logoRow);
 
   const bgRow = document.createElement("div");
   bgRow.className = "admin-row";
@@ -1737,7 +1744,36 @@ function createHeaderMediaSection() {
   bgRow.appendChild(bgUploadInput);
   bgRow.appendChild(bgClearBtn);
   bgRow.appendChild(bgSize);
-  headerSection.appendChild(bgRow);
+  mediaGroup.appendChild(bgRow);
+  headerSection.appendChild(mediaGroup);
+
+  const controlsGroup = document.createElement("div");
+  controlsGroup.className = "admin-subgroup";
+  const controlsTitle = document.createElement("div");
+  controlsTitle.className = "admin-subtitle";
+  controlsTitle.textContent = "Theme + icons";
+  controlsGroup.appendChild(controlsTitle);
+
+  const themeRow = document.createElement("div");
+  themeRow.className = "admin-row";
+  const themeLabel = document.createElement("span");
+  themeLabel.className = "admin-note";
+  themeLabel.textContent = "Theme";
+  const headerThemeSelect = document.createElement("select");
+  headerThemeSelect.className = "panel-title-input";
+  Object.entries(THEMES).forEach(([key, theme]) => {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = theme.label;
+    option.selected = key === activeTheme;
+    headerThemeSelect.appendChild(option);
+  });
+  headerThemeSelect.addEventListener("change", () => {
+    setTheme(headerThemeSelect.value);
+  });
+  themeRow.appendChild(themeLabel);
+  themeRow.appendChild(headerThemeSelect);
+  controlsGroup.appendChild(themeRow);
 
   const socialsRow = document.createElement("div");
   socialsRow.className = "admin-row";
@@ -1809,10 +1845,12 @@ function createHeaderMediaSection() {
     wrapper.appendChild(removeBtn);
     socialsRow.appendChild(wrapper);
   });
-  headerSection.appendChild(socialsRow);
+  controlsGroup.appendChild(socialsRow);
+  headerSection.appendChild(controlsGroup);
 
   return headerSection;
 }
+
 
 function renderAdminBox() {
   if (!adminBox) {
@@ -1888,7 +1926,10 @@ function renderAdminBox() {
       state.onlineAuth.push({ id: createId("online-auth"), username: "", password: "", role: "editor" });
       render();
     });
-    onlineSection.appendChild(addOnlineAccount);
+    const addRow = document.createElement("div");
+    addRow.className = "admin-row online-add-row";
+    addRow.appendChild(addOnlineAccount);
+    onlineSection.appendChild(addRow);
 
   }
 
@@ -2052,10 +2093,18 @@ function renderAdminBox() {
   actionSection.appendChild(blockRow);
 
   if (isHomePage) {
+    if (onlineSection) {
+      adminBox.appendChild(onlineSection);
+      const dividerA = document.createElement("div");
+      dividerA.className = "admin-divider";
+      adminBox.appendChild(dividerA);
+    }
+    adminBox.appendChild(actionSection);
+    const dividerB = document.createElement("div");
+    dividerB.className = "admin-divider";
+    adminBox.appendChild(dividerB);
     adminBox.appendChild(createHeaderMediaSection());
-  }
-  if (isHomePage && onlineSection) {
-    adminBox.appendChild(onlineSection);
+    return;
   }
   adminBox.appendChild(actionSection);
 }
@@ -2155,6 +2204,7 @@ function moveSharedNavIndicator(target, animateFromMain = false) {
   const nextX = rect.left - hostRect.left;
   const nextY = rect.top - hostRect.top;
   indicator.style.width = `${rect.width}px`;
+  indicator.style.height = `${rect.height}px`;
   indicator.style.transform = `translate(${nextX}px, ${nextY}px)`;
   indicator.style.opacity = "1";
   if (animateFromMain) {
@@ -3679,7 +3729,7 @@ function renderShipMetaBlock(block, index) {
       icon.textContent = getShipMetaIcon(row.key);
       left.appendChild(icon);
       const qty = document.createElement(editing ? "input" : "span");
-      qty.className = "ship-meta-qty";
+      qty.className = `ship-meta-qty${editing ? " is-input" : ""}`;
       if (editing) {
         qty.type = "number";
         qty.min = "1";
@@ -3746,7 +3796,11 @@ function renderShipMetaBlock(block, index) {
       }
 
       const signatures = document.createElement("div");
-      signatures.className = "ship-meta-signatures-compact";
+      signatures.className = `ship-meta-signatures-compact${editing ? " is-edit" : ""}`;
+      const statsTitle = document.createElement("div");
+      statsTitle.className = "ship-meta-stats-title";
+      statsTitle.textContent = "Stats";
+      modeContent.appendChild(statsTitle);
     const leftSig = document.createElement("div");
     leftSig.className = "ship-meta-signature-cluster";
     leftSig.appendChild(renderField(`${getShipMetaIcon("em")} EM`, modeData.signatures?.em, (value) => { modeData.signatures.em = value; }, { editable: editing, type: "number" }));
@@ -4348,11 +4402,13 @@ function renderCalloutGroupBlock(block, index) {
     }
 
     const subCallouts = groupCallouts.filter((item) => (item.subBoxId || block.subBoxes[0]?.id) === subBox.id);
+    const elementGrid = document.createElement("div");
+    elementGrid.className = "study-element-grid";
     if (!subCallouts.length) {
       const emptySub = document.createElement("div");
       emptySub.className = "empty-state";
       emptySub.textContent = "No elements in this sub-box yet.";
-      subCard.appendChild(emptySub);
+      elementGrid.appendChild(emptySub);
     }
 
     subCallouts.forEach((item, itemIndex) => {
@@ -4396,8 +4452,9 @@ function renderCalloutGroupBlock(block, index) {
         reorder.appendChild(down);
         card.appendChild(reorder);
       }
-      subCard.appendChild(card);
+      elementGrid.appendChild(card);
     });
+    subCard.appendChild(elementGrid);
     subGrid.appendChild(subCard);
   });
   section.appendChild(subGrid);
@@ -4527,15 +4584,31 @@ function renderCalloutCard(item, options = {}) {
         const openId = openCard.dataset.cardId;
         if (openId) {
           setExpanded(openId, false);
+          pinnedStudyCardIds.delete(openId);
         }
       });
     }
     card.classList.toggle("expanded", expanded);
     setExpanded(cardId, expanded);
+    if (!expanded) {
+      pinnedStudyCardIds.delete(cardId);
+    }
   };
 
   header.addEventListener("click", () => {
-    setCardExpanded(!card.classList.contains("expanded"));
+    if (studyOverlay && editable) {
+      const nextPinned = !pinnedStudyCardIds.has(cardId);
+      if (nextPinned) {
+        pinnedStudyCardIds.add(cardId);
+      } else {
+        pinnedStudyCardIds.delete(cardId);
+      }
+      setCardExpanded(nextPinned);
+      return;
+    }
+    if (!studyOverlay) {
+      setCardExpanded(!card.classList.contains("expanded"));
+    }
   });
 
   if (studyOverlay) {
@@ -4546,6 +4619,9 @@ function renderCalloutCard(item, options = {}) {
       setCardExpanded(true);
     });
     card.addEventListener("mouseleave", () => {
+      if (pinnedStudyCardIds.has(cardId)) {
+        return;
+      }
       const timeout = window.setTimeout(() => {
         setCardExpanded(false);
         studyHoverCloseTimers.delete(cardId);
@@ -4603,10 +4679,13 @@ function renderCalloutCard(item, options = {}) {
   const body = document.createElement("div");
   body.className = "callout-body";
 
-  const expandedTitle = document.createElement("div");
-  expandedTitle.className = "callout-expanded-title span-two";
-  expandedTitle.textContent = item.callName || "Element";
-  body.appendChild(expandedTitle);
+  let expandedTitle = null;
+  if (!studyOverlay) {
+    expandedTitle = document.createElement("div");
+    expandedTitle.className = "callout-expanded-title span-two";
+    expandedTitle.textContent = item.callName || "Element";
+    body.appendChild(expandedTitle);
+  }
 
   if (editable) {
     body.appendChild(
@@ -4615,7 +4694,7 @@ function renderCalloutCard(item, options = {}) {
         item.callName = value;
         const safeName = value || "New Element";
         name.textContent = safeName;
-        expandedTitle.textContent = safeName;
+        if (expandedTitle) expandedTitle.textContent = safeName;
         const nextId = `${item.groupId}-${item.callName}`;
         card.dataset.cardId = nextId;
         if (previousId && expandedIds.has(previousId)) {
@@ -6231,6 +6310,8 @@ if (adminToggle) {
     toggleAdmin();
   });
 }
+
+document.addEventListener("click", closeStudyOverlaysOnOutsideClick);
 
 window.addEventListener("resize", () => {
   updateScrollOffset();

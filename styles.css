@@ -2839,3 +2839,216 @@ body.has-page-bg::before {
 .pro-feature-list { display:grid; gap:0.45rem; }
 .pro-feature-row { background: var(--panel-elev); border:1px solid var(--line); border-radius:8px; padding:0.55rem 0.7rem; }
 .pro-cta-editor { display:grid; gap:0.5rem; grid-template-columns: repeat(2,minmax(0,1fr)); }
+
+/* Focused 2026-02 UX/layout fixes (style-preserving) */
+.page-nav,
+.category-nav-band,
+.category-nav {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.header-navs {
+  position: relative;
+  overflow: visible;
+}
+
+.page-nav a,
+.category-nav a {
+  max-width: 150px;
+  white-space: normal;
+  text-wrap: balance;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.nav-shared-indicator {
+  min-height: 30px;
+  transition: transform 360ms cubic-bezier(0.2, 0.68, 0.2, 1), width 360ms cubic-bezier(0.2, 0.68, 0.2, 1), height 360ms cubic-bezier(0.2, 0.68, 0.2, 1), opacity 220ms ease;
+}
+
+.mode-btn.is-pro {
+  padding-right: 0.7rem;
+}
+
+.mode-lock {
+  margin-left: 0.16rem;
+}
+
+.admin-box {
+  gap: 0.95rem;
+}
+
+.admin-divider {
+  border-top: 1px solid rgba(155, 176, 201, 0.28);
+  margin: 0.1rem 0;
+}
+
+.admin-subgroup {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.admin-subtitle {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.admin-section {
+  gap: 0.65rem;
+}
+
+.admin-section .admin-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-section .admin-row.online-add-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-section .online-add-row .btn {
+  grid-column: 1;
+  width: 100%;
+}
+
+.ship-meta-top-row {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.ship-mode-toggle {
+  justify-self: center;
+}
+
+.ship-meta-signatures-compact.is-edit {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border: 1px solid rgba(155, 176, 201, 0.26);
+  border-radius: 8px;
+  background: rgba(11, 16, 24, 0.3);
+}
+
+.ship-meta-stats-title {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.ship-meta-signatures-compact.is-edit .field {
+  gap: 0.2rem;
+}
+
+.ship-meta-signatures-compact.is-edit .field label {
+  font-size: 0.54rem;
+}
+
+.ship-meta-signatures-compact.is-edit .field input {
+  height: 1.55rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.68rem;
+}
+
+.ship-meta-qty {
+  min-width: 1.65rem;
+  padding: 0.02rem 0.25rem;
+  font-size: 0.62rem;
+}
+
+.ship-meta-qty.is-input {
+  width: 2.25rem;
+  height: 1.35rem;
+  padding: 0.05rem 0.2rem;
+}
+
+.study-subbox-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.study-element-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.42rem;
+  align-items: start;
+}
+
+.study-element-grid .callout-card {
+  overflow: visible;
+}
+
+.study-element-grid .callout-header {
+  min-height: 2rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.study-element-grid .callout-title {
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.study-overlay-callout {
+  z-index: 2;
+}
+
+.study-overlay-callout.expanded {
+  z-index: 70;
+}
+
+.study-overlay-callout .callout-body {
+  top: calc(100% + 0.18rem);
+  left: 0;
+  right: auto;
+  min-width: 260px;
+  width: min(420px, 56vw);
+  max-height: min(62vh, 520px);
+  overflow: auto;
+  z-index: 71;
+  isolation: isolate;
+}
+
+.study-overlay-callout .callout-body .field,
+.study-overlay-callout .callout-body textarea,
+.study-overlay-callout .callout-body input,
+.study-overlay-callout .callout-body select {
+  font-size: 0.68rem;
+}
+
+@media (max-width: 1100px) {
+  .study-subbox-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .study-element-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-section .admin-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ship-meta-signatures-compact.is-edit {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .study-element-grid,
+  .study-subbox-grid,
+  .admin-section .admin-row,
+  .ship-meta-signatures-compact.is-edit {
+    grid-template-columns: 1fr;
+  }
+
+  .study-overlay-callout .callout-body {
+    width: min(92vw, 420px);
+  }
+}
